@@ -229,6 +229,25 @@ Runs entirely offline — no credentials or network needed:
 npm test
 ```
 
+## Uninstalling
+
+If something isn't working and you want to back out: double-click
+[`uninstall-stream-bot.exe`](uninstall-stream-bot.exe) (or run `npm run
+uninstall` / `uninstall.bat` from a terminal). It will:
+
+1. Check whether the bot is currently running and offer to stop it
+2. Ask before removing installed dependencies (`node_modules`) — safe,
+   reinstall anytime with `npm install` or the installer
+3. Ask before removing your saved credentials (`.env`) — this deletes your
+   Twitch/YouTube tokens, so you'd need to redo the setup wizard afterward;
+   defaults to **no** since it's the more destructive option
+
+It never touches your source code, your custom `config/*.json`
+(commands/jokes/moderation/alerts), or git history — those are yours, not
+install artifacts. To remove the project entirely, delete the folder
+yourself (and delete the GitHub repo yourself, if you want that gone too —
+neither of those is something this script does automatically).
+
 ## Known limitations (this test version)
 
 - Not yet verified against a real live Twitch/YouTube stream — please watch
