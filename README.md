@@ -39,17 +39,35 @@ stream first and watch the console output before trusting it on a real one.
   moderator in your channel: type `/mod <botname>` in your own Twitch chat.
 - For YouTube, a Google account and a free Google Cloud project.
 
-## Quick setup (recommended)
+## Easiest: double-click install-stream-bot.exe
 
-Run the guided wizard — it installs dependencies, asks which platform(s) you
-want, and walks you through each one, printing (and opening) the exact page
-you need to be on at every step:
+Double-click [`install-stream-bot.exe`](install-stream-bot.exe) — it opens a
+console window that installs dependencies, runs the setup wizard (see
+below) if you haven't configured `.env` yet, and then starts the bot. That's
+the whole process; no terminal typing required.
+
+It's a tiny native launcher (source in [`installer/Program.cs`](installer/Program.cs),
+compiled with the C# compiler that ships with Windows — nothing downloaded)
+that just opens [`install-and-start.bat`](install-and-start.bat), which does
+the actual work. Requires Node.js to already be installed — if it isn't,
+the script opens the download page for you and stops so you can install it
+first, then run it again.
+
+Re-running it later is safe: if `.env` already exists it'll ask whether you
+want to redo the setup wizard, then start the bot either way.
+
+## Guided wizard (npm run setup)
+
+If you'd rather run it from a terminal yourself, or you're not on Windows,
+the wizard is just:
 
 ```
 npm run setup
 ```
 
-Then:
+It installs dependencies, asks which platform(s) you want, and walks you
+through each one, printing (and opening) the exact page you need to be on
+at every step. Then:
 
 ```
 npm start
