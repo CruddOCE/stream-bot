@@ -331,8 +331,3 @@ neither of those is something this script does automatically).
 - Overlay TTS quality depends on whatever voices your OS/Chromium have
   installed — it's the browser's built-in speech synthesis, not a
   dedicated TTS service.
-- The "Add OBS Browser Source" button is implemented against OBS's
-  documented WebSocket protocol and its connection/error handling is
-  tested, but the actual "does it add the source correctly" step hasn't
-  been confirmed against a live OBS session yet — if it doesn't work,
-  the log will say why; fall back to the manual steps above.
