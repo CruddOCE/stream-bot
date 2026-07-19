@@ -1,7 +1,11 @@
 const configStore = require('./configStore');
+const alertServer = require('./alertServer');
+const state = require('./state');
+const twitchApi = require('./twitchApi');
 
 const startTime = Date.now();
 const PREFIX = process.env.BOT_PREFIX || '!';
+const MOD_ONLY = new Set(['so']);
 
 function formatUptime(ms) {
   const totalSeconds = Math.floor(ms / 1000);
@@ -26,7 +30,25 @@ const BUILTINS = {
   joke: () => {
     const jokes = configStore.get('jokes') || [];
     if (jokes.length === 0) return 'No jokes loaded — add some to config/jokes.json.';
-    return jokes[Math.floor(Math.random() * jokes.length)];
+    const joke = jokes[Math.floor(Math.random() * jokes.length)];
+    alertServer.speak(joke);
+    return joke;
+  },
+  so: async (message, args) => {
+    const targetRaw = args[0] || state.getLastRaider(message.platform);
+    if (!targetRaw) return 'No one to shout out yet — try !so <username>.';
+    const target = targetRaw.replace(/^@/, '');
+
+    if (message.platform === 'twitch') {
+      const info = await twitchApi.getChannelInfo(target).catch(() => null);
+      if (info) {
+        return info.game
+          ? `Go check out ${info.displayName} at twitch.tv/${info.login} — they were last streaming ${info.game}!`
+          : `Go check out ${info.displayName} at twitch.tv/${info.login}!`;
+      }
+    }
+
+    return `Go check out ${target}!`;
   },
 };
 
@@ -41,7 +63,11 @@ async function handle(message, ctx) {
   if (!cmd) return false;
 
   if (BUILTINS[cmd]) {
-    await ctx.reply(BUILTINS[cmd](message, args));
+    if (MOD_ONLY.has(cmd) && !message.isMod && !message.isBroadcaster) {
+      await ctx.reply('only mods can use that command.');
+      return true;
+    }
+    await ctx.reply(await BUILTINS[cmd](message, args));
     return true;
   }
 

@@ -1,9 +1,22 @@
 const { google } = require('googleapis');
 const moderation = require('./moderation');
 const commands = require('./commands');
+const configStore = require('./configStore');
+const alertServer = require('./alertServer');
 const { getAuthedClient } = require('./youtubeAuth');
 
 const DEFAULT_POLL_MS = 5000;
+
+function fillTemplate(str, vars) {
+  return str.replace(/\{(\w+)\}/g, (_, key) => (key in vars ? vars[key] : `{${key}}`));
+}
+
+function fireAlert(type, defaultTemplate, vars) {
+  const alerts = configStore.get('alerts');
+  if (!alerts || !alerts.enabled) return;
+  const template = (alerts.templates && alerts.templates[type]) || defaultTemplate;
+  alertServer.alert(type, fillTemplate(template, vars));
+}
 
 async function findLiveChatId(youtube, channelId) {
   const search = await youtube.search.list({
@@ -78,8 +91,26 @@ async function start() {
         if (seen.has(item.id)) continue;
         seen.add(item.id);
 
-        const text = item.snippet.displayMessage || '';
         const author = item.authorDetails;
+        const eventType = item.snippet.type;
+
+        if (eventType === 'superChatEvent' || eventType === 'superStickerEvent') {
+          const details = item.snippet.superChatDetails || item.snippet.superStickerDetails || {};
+          fireAlert('superchat', '{user} sent a Super Chat: {amount}!', {
+            user: author.displayName,
+            amount: details.amountDisplayString || '',
+          });
+          continue;
+        }
+
+        if (eventType === 'newSponsorEvent') {
+          fireAlert('member', '{user} became a member!', { user: author.displayName });
+          continue;
+        }
+
+        if (eventType !== 'textMessageEvent') continue;
+
+        const text = item.snippet.displayMessage || '';
         const isMod = Boolean(author.isChatModerator) || Boolean(author.isChatOwner);
         const isBroadcaster = Boolean(author.isChatOwner);
 

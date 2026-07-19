@@ -14,6 +14,7 @@ const scratchDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stream-bot-test-'));
 fs.mkdirSync(path.join(scratchDir, 'config'));
 fs.copyFileSync(path.join(__dirname, '..', 'config', 'commands.json'), path.join(scratchDir, 'config', 'commands.json'));
 fs.copyFileSync(path.join(__dirname, '..', 'config', 'jokes.json'), path.join(scratchDir, 'config', 'jokes.json'));
+fs.copyFileSync(path.join(__dirname, '..', 'config', 'alerts.json'), path.join(scratchDir, 'config', 'alerts.json'));
 fs.writeFileSync(
   path.join(scratchDir, 'config', 'moderation.json'),
   JSON.stringify({
@@ -34,6 +35,7 @@ configStore.init();
 
 const commands = require('../src/commands');
 const moderation = require('../src/moderation');
+const state = require('../src/state');
 
 async function run() {
   // --- Commands ---
@@ -59,6 +61,27 @@ async function run() {
   assert.strictEqual(handled, true);
   assert.ok(jokesList.includes(replied), 'joke reply should come from config/jokes.json');
   console.log('builtin command (!joke): ok');
+
+  handled = await commands.handle({ text: '!so somestreamer', username: 'viewer1', isMod: false, isBroadcaster: false, platform: 'twitch' }, ctx);
+  assert.strictEqual(handled, true);
+  assert.ok(replied.toLowerCase().includes('only mods'), 'non-mods should be blocked from !so');
+  console.log('!so blocked for non-mods: ok');
+
+  handled = await commands.handle({ text: '!so', username: 'modUser', isMod: true, isBroadcaster: false, platform: 'twitch' }, ctx);
+  assert.strictEqual(handled, true);
+  assert.ok(replied.includes('No one to shout out yet'), 'no target and no last raider should prompt for a username');
+  console.log('!so with no target/raider: ok');
+
+  handled = await commands.handle({ text: '!so somestreamer', username: 'modUser', isMod: true, isBroadcaster: false, platform: 'twitch' }, ctx);
+  assert.strictEqual(handled, true);
+  assert.ok(replied.includes('somestreamer'), 'shoutout should mention the given username');
+  console.log('!so with explicit target (no Twitch API creds): ok');
+
+  state.setLastRaider('twitch', 'raiderperson');
+  handled = await commands.handle({ text: '!so', username: 'modUser', isMod: true, isBroadcaster: false, platform: 'twitch' }, ctx);
+  assert.strictEqual(handled, true);
+  assert.ok(replied.includes('raiderperson'), 'shoutout should fall back to the last raider when no target is given');
+  console.log('!so falls back to last raider: ok');
 
   // --- Moderation ---
   let result = moderation.evaluate({ username: 'viewer2', text: 'this has a badword in it', isMod: false, isBroadcaster: false });

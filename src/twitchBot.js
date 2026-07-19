@@ -1,6 +1,20 @@
 const tmi = require('tmi.js');
 const moderation = require('./moderation');
 const commands = require('./commands');
+const configStore = require('./configStore');
+const alertServer = require('./alertServer');
+const state = require('./state');
+
+function fillTemplate(str, vars) {
+  return str.replace(/\{(\w+)\}/g, (_, key) => (key in vars ? vars[key] : `{${key}}`));
+}
+
+function fireAlert(type, defaultTemplate, vars) {
+  const alerts = configStore.get('alerts');
+  if (!alerts || !alerts.enabled) return;
+  const template = (alerts.templates && alerts.templates[type]) || defaultTemplate;
+  alertServer.alert(type, fillTemplate(template, vars));
+}
 
 function start() {
   const channel = process.env.TWITCH_CHANNEL;
@@ -24,6 +38,48 @@ function start() {
 
   client.on('disconnected', (reason) => {
     console.warn(`[twitch] Disconnected: ${reason}`);
+  });
+
+  client.on('subscription', (chan, subUsername, method, message, userstate) => {
+    fireAlert('sub', '{user} just subscribed!', {
+      user: userstate['display-name'] || subUsername,
+    });
+  });
+
+  client.on('resub', (chan, subUsername, months, message, userstate) => {
+    fireAlert('resub', '{user} resubscribed for {months} months!', {
+      user: userstate['display-name'] || subUsername,
+      months: userstate['msg-param-cumulative-months'] || months,
+    });
+  });
+
+  client.on('subgift', (chan, gifterUsername, streakMonths, recipient, methods, userstate) => {
+    fireAlert('gift', '{user} gifted a sub to {recipient}!', {
+      user: userstate['display-name'] || gifterUsername,
+      recipient,
+    });
+  });
+
+  client.on('submysterygift', (chan, gifterUsername, numbOfSubs, methods, userstate) => {
+    fireAlert('giftBomb', '{user} gifted {count} subs to the community!', {
+      user: userstate['display-name'] || gifterUsername,
+      count: numbOfSubs,
+    });
+  });
+
+  client.on('cheer', (chan, userstate) => {
+    fireAlert('cheer', '{user} cheered {bits} bits!', {
+      user: userstate['display-name'] || userstate.username,
+      bits: userstate.bits,
+    });
+  });
+
+  client.on('raided', (chan, raiderUsername, viewers) => {
+    state.setLastRaider('twitch', raiderUsername);
+    fireAlert('raid', '{user} raided with {viewers} viewers!', {
+      user: raiderUsername,
+      viewers,
+    });
   });
 
   client.on('message', async (target, tags, text, self) => {

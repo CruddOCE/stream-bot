@@ -7,16 +7,18 @@ const FILES = {
   commands: 'commands.json',
   moderation: 'moderation.json',
   jokes: 'jokes.json',
+  alerts: 'alerts.json',
 };
 
 const DEFAULTS = {
   commands: {},
   moderation: { enabled: false },
   jokes: [],
+  alerts: { enabled: false, displaySeconds: 6, templates: {} },
 };
 
 const state = {};
-const listeners = { commands: [], moderation: [], jokes: [] };
+const listeners = { commands: [], moderation: [], jokes: [], alerts: [] };
 const watchers = [];
 
 function loadFile(key) {

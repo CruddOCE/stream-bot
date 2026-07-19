@@ -13,13 +13,20 @@ stream first and watch the console output before trusting it on a real one.
 - Connects to your Twitch channel's chat and/or your YouTube channel's live
   chat at the same time.
 - Built-in commands: `!commands`, `!uptime`, `!joke` (random clean joke from
-  `config/jokes.json`, no racist material — add/remove your own anytime).
+  `config/jokes.json`, no racist material — add/remove your own anytime),
+  `!so` (mod-only shoutout — see below).
 - Custom commands you define yourself in `config/commands.json` — no code
   editing, and changes apply live (no restart needed).
 - Auto-moderation: banned words, link blocking (with an allowlist), excessive
   caps, and repeated-message spam — each escalates from a warning to a
   timeout, configurable in `config/moderation.json` (also hot-reloads).
 - Mods and the broadcaster are always exempt from auto-mod.
+- Stream alerts + an OBS overlay: subs, resubs, gift subs, cheers, and raids
+  on Twitch; Super Chats and new memberships on YouTube. Runs on a small
+  local web server you add to OBS as a Browser Source.
+- `!joke` is also read aloud through the overlay using the browser's
+  built-in text-to-speech, so it plays through OBS — no paid TTS service or
+  API key needed.
 
 ## Requirements
 
@@ -99,6 +106,54 @@ Without the OAuth step, YouTube mode is read-only: it'll log what command or
 moderation action it *would* have taken, which is a safe way to test it
 during a real stream before granting write access.
 
+## OBS overlay + alerts
+
+The bot runs a small local server (default `http://localhost:8090`) that
+serves an overlay page and pushes alerts/TTS to it over a WebSocket.
+
+1. In OBS, add a **Browser Source**.
+2. Set the URL to `http://localhost:8090/overlay.html` (change the port via
+   `ALERT_SERVER_PORT` in `.env` if you changed it).
+3. Set width/height to your canvas size (e.g. 1920x1080), and leave
+   "Control audio via OBS" **checked** — this is what routes the `!joke`
+   text-to-speech (and the alert chime) into your OBS audio mixer.
+
+Triggers automatically, no extra setup:
+
+- Twitch: subscriptions, resubs, gift subs (single + community gifts),
+  cheers, raids.
+- YouTube: Super Chats/Super Stickers, new memberships.
+
+Edit the alert text in `config/alerts.json` (hot-reloads, no restart):
+
+```json
+{
+  "templates": {
+    "sub": "{user} just subscribed!",
+    "raid": "{user} raided with {viewers} viewers!"
+  }
+}
+```
+
+Available placeholders per event: `sub`/`member` → `{user}`; `resub` →
+`{user} {months}`; `gift` → `{user} {recipient}`; `giftBomb` → `{user}
+{count}`; `cheer` → `{user} {bits}`; `raid` → `{user} {viewers}`;
+`superchat` → `{user} {amount}`.
+
+## Shoutouts (`!so`)
+
+Mod-only (and broadcaster). Usage:
+
+- `!so <username>` — shouts out a specific user.
+- `!so` with no argument — shouts out the last person who raided the
+  channel (Twitch only; resets each time the bot restarts).
+
+On Twitch, if `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` are set in
+`.env` (same app you registered for `twitch-auth`, generate a Client Secret
+on the same page), it looks up the target's channel and includes what game
+they were last streaming. Without those, or on YouTube, it falls back to a
+plain "go check out `<user>`" message.
+
 ## Adding your own commands
 
 Edit `config/commands.json`:
@@ -137,7 +192,12 @@ npm test
 
 - Not yet verified against a real live Twitch/YouTube stream — please watch
   the console the first time you run it live.
-- No song requests, stream alerts, or OBS overlay yet.
+- No song requests yet.
 - No voice/console control for manually triggering mod actions yet.
 - YouTube moderation requires the OAuth step above; API-key-only mode is
   read-only.
+- `!so`'s "last raided" memory only tracks Twitch raids and resets on
+  restart; on YouTube (or after a restart) you need to pass a username.
+- Overlay TTS quality depends on whatever voices your OS/Chromium have
+  installed — it's the browser's built-in speech synthesis, not a
+  dedicated TTS service.

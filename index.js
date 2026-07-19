@@ -1,5 +1,6 @@
 require('dotenv').config();
 const configStore = require('./src/configStore');
+const alertServer = require('./src/alertServer');
 const twitchBot = require('./src/twitchBot');
 const youtubeBot = require('./src/youtubeBot');
 
@@ -13,6 +14,7 @@ if (!enableTwitch && !enableYoutube) {
   process.exit(1);
 }
 
+alertServer.start();
 if (enableTwitch) twitchBot.start();
 if (enableYoutube) youtubeBot.start();
 

@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "displaySeconds": 6,
+  "templates": {
+    "sub": "{user} just subscribed!",
+    "resub": "{user} resubscribed for {months} months!",
+    "gift": "{user} gifted a sub to {recipient}!",
+    "giftBomb": "{user} gifted {count} subs to the community!",
+    "cheer": "{user} cheered {bits} bits!",
+    "raid": "{user} raided with {viewers} viewers!",
+    "superchat": "{user} sent a Super Chat: {amount}!",
+    "member": "{user} became a member!"
+  }
+}
