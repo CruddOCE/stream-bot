@@ -61,9 +61,17 @@ want to redo the setup wizard, then start the bot either way.
 ## Day-to-day: stream-bot-control.exe
 
 Once you've set up once, use [`stream-bot-control.exe`](stream-bot-control.exe)
-to turn the bot on and off around your streams — no console window, no
-typing. Double-click it and you get a small window with:
+to turn the bot on and off around your streams — a proper dashboard, not
+just a bare console window:
 
+- **Live Chat panel** — every Twitch/YouTube message shows up as it
+  arrives, with a timestamp, a color-coded platform tag (`[Twitch]` /
+  `[YouTube]`), a `[MOD]`/`[HOST]` badge where it applies, and each
+  username rendered in its own consistent color (the same person is
+  always the same color, so it's obvious at a glance who's talking).
+- **Activity Log panel** — the same diagnostic output as before
+  (connections, mod actions, alerts, errors), kept separate from chat so
+  the two don't get mixed together.
 - A **Start Bot / Stop Bot** button — click it after you go live (or
   before; Twitch chat is joinable regardless of live status, and YouTube
   just retries every 30s until a stream is found).
@@ -77,8 +85,6 @@ typing. Double-click it and you get a small window with:
   (needed because Windows won't let a running program overwrite its own
   file) — a console window shows progress in between. Any local edits to
   your `config/*.json` files are preserved.
-- A status indicator (running/stopped) and a live log of what the bot is
-  doing.
 
 **Closing the window stops the bot automatically** — that's the whole
 "turn it off after streaming" step, nothing else to remember. If the bot

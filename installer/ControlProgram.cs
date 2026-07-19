@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Text;
 using System.Windows.Forms;
 
-// Simple on/off control panel: one button to start the bot, the same
-// button to stop it, a status indicator, and a live log. Closing the
-// window stops the bot if it's running, so there's no separate "turn it
-// off" step to remember after a stream.
+// Dashboard-style control panel: start/stop the bot, watch live chat with
+// per-user coloring, see an activity log, connect OBS, and self-update.
+// Closing the window stops the bot if it's running, so there's no
+// separate "turn it off" step to remember after a stream.
 class ControlApp
 {
     [STAThread]
@@ -17,6 +18,43 @@ class ControlApp
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.Run(new MainForm());
+    }
+}
+
+// Centralized dark palette so every control matches.
+static class Theme
+{
+    public static readonly Color Background = Color.FromArgb(24, 24, 27);
+    public static readonly Color Panel = Color.FromArgb(32, 32, 36);
+    public static readonly Color Header = Color.FromArgb(18, 18, 20);
+    public static readonly Color Border = Color.FromArgb(50, 50, 55);
+    public static readonly Color Text = Color.FromArgb(230, 230, 235);
+    public static readonly Color MutedText = Color.FromArgb(150, 150, 160);
+    public static readonly Color Accent = Color.FromArgb(145, 70, 255);
+    public static readonly Color AccentDark = Color.FromArgb(105, 50, 190);
+    public static readonly Color Running = Color.FromArgb(87, 242, 135);
+    public static readonly Color Stopped = Color.FromArgb(255, 92, 92);
+    public static readonly Color Secondary = Color.FromArgb(55, 55, 62);
+
+    public static Font Title = new Font("Segoe UI", 14, FontStyle.Bold);
+    public static Font Body = new Font("Segoe UI", 9.5F);
+    public static Font BodyBold = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+    public static Font Small = new Font("Segoe UI", 8.5F);
+    public static Font Mono = new Font("Consolas", 9F);
+
+    public static Button MakeButton(string text, Color back, Color fore)
+    {
+        var b = new Button
+        {
+            Text = text,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = back,
+            ForeColor = fore,
+            Font = BodyBold,
+            Cursor = Cursors.Hand,
+        };
+        b.FlatAppearance.BorderSize = 0;
+        return b;
     }
 }
 
@@ -29,77 +67,178 @@ class MainForm : Form
     private Button updateButton;
     private TextBox obsPasswordBox;
     private Label statusLabel;
-    private TextBox logBox;
+    private RichTextBox chatBox;
+    private RichTextBox logBox;
+    private readonly Dictionary<string, Color> userColors = new Dictionary<string, Color>();
+
+    private static readonly Color[] UserPalette = new[]
+    {
+        Color.FromArgb(255, 129, 122), Color.FromArgb(122, 190, 255), Color.FromArgb(255, 200, 110),
+        Color.FromArgb(150, 235, 160), Color.FromArgb(255, 150, 225), Color.FromArgb(140, 225, 225),
+        Color.FromArgb(205, 175, 255), Color.FromArgb(255, 225, 130), Color.FromArgb(180, 255, 180),
+        Color.FromArgb(255, 175, 210),
+    };
 
     public MainForm()
     {
         rootDir = AppDomain.CurrentDomain.BaseDirectory;
 
-        Text = "stream-bot control";
-        Width = 640;
-        Height = 420;
+        Text = "stream-bot";
+        Width = 900;
+        Height = 560;
+        MinimumSize = new Size(700, 420);
         StartPosition = FormStartPosition.CenterScreen;
+        BackColor = Theme.Background;
+        Font = Theme.Body;
         FormClosing += OnFormClosing;
 
-        statusLabel = new Label
-        {
-            Text = "Status: stopped",
-            Dock = DockStyle.Top,
-            Height = 32,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(8, 0, 0, 0),
-            Font = new Font(Font.FontFamily, 11, FontStyle.Bold),
-            ForeColor = Color.DarkRed,
-        };
-
-        toggleButton = new Button
-        {
-            Text = "Start Bot",
-            Dock = DockStyle.Top,
-            Height = 44,
-            Font = new Font(Font.FontFamily, 11),
-        };
-        toggleButton.Click += OnToggleClick;
-
-        var actionsPanel = new Panel { Dock = DockStyle.Top, Height = 40 };
-
-        var obsPasswordLabel = new Label
-        {
-            Text = "OBS pwd:",
-            Location = new Point(4, 11),
-            Width = 55,
-            TextAlign = ContentAlignment.MiddleLeft,
-        };
-        obsPasswordBox = new TextBox { Location = new Point(60, 8), Width = 110, PasswordChar = '*' };
-        obsButton = new Button { Text = "Add OBS Browser Source", Location = new Point(178, 5), Width = 170, Height = 28 };
-        obsButton.Click += OnObsButtonClick;
-        updateButton = new Button { Text = "Update", Location = new Point(354, 5), Width = 80, Height = 28 };
-        updateButton.Click += OnUpdateButtonClick;
-
-        actionsPanel.Controls.Add(obsPasswordLabel);
-        actionsPanel.Controls.Add(obsPasswordBox);
-        actionsPanel.Controls.Add(obsButton);
-        actionsPanel.Controls.Add(updateButton);
-
-        logBox = new TextBox
-        {
-            Multiline = true,
-            ReadOnly = true,
-            ScrollBars = ScrollBars.Vertical,
-            Dock = DockStyle.Fill,
-            Font = new Font(FontFamily.GenericMonospace, 9),
-            BackColor = Color.Black,
-            ForeColor = Color.LightGray,
-        };
-
-        Controls.Add(logBox);
-        Controls.Add(actionsPanel);
-        Controls.Add(toggleButton);
-        Controls.Add(statusLabel);
+        Controls.Add(BuildBottomBar());
+        Controls.Add(BuildMainSplit());
+        Controls.Add(BuildHeader());
 
         AppendLog("stream-bot control ready.");
         CheckReadiness();
     }
+
+    // ---------- Layout ----------
+
+    private Panel BuildHeader()
+    {
+        var header = new Panel { Dock = DockStyle.Top, Height = 64, BackColor = Theme.Header };
+
+        var title = new Label
+        {
+            Text = "stream-bot",
+            Font = Theme.Title,
+            ForeColor = Theme.Text,
+            AutoSize = true,
+            Location = new Point(16, 16),
+        };
+
+        statusLabel = new Label
+        {
+            Text = "STOPPED",
+            Font = Theme.BodyBold,
+            ForeColor = Theme.Stopped,
+            AutoSize = true,
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+        };
+
+        toggleButton = Theme.MakeButton("Start Bot", Theme.Accent, Color.White);
+        toggleButton.Size = new Size(120, 34);
+        toggleButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        toggleButton.Click += OnToggleClick;
+
+        header.Controls.Add(title);
+        header.Controls.Add(statusLabel);
+        header.Controls.Add(toggleButton);
+
+        Action positionRightSide = () =>
+        {
+            toggleButton.Location = new Point(header.ClientSize.Width - toggleButton.Width - 16, 15);
+            statusLabel.Location = new Point(toggleButton.Left - statusLabel.Width - 16, 24);
+        };
+        header.Resize += (s, e) => positionRightSide();
+        positionRightSide();
+
+        return header;
+    }
+
+    private SplitContainer BuildMainSplit()
+    {
+        var split = new SplitContainer
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Theme.Border,
+            SplitterWidth = 2,
+        };
+
+        split.Panel1.Controls.Add(BuildFeedPanel("LIVE CHAT", out chatBox, true));
+        split.Panel2.Controls.Add(BuildFeedPanel("ACTIVITY LOG", out logBox, false));
+        split.Panel1.BackColor = Theme.Background;
+        split.Panel2.BackColor = Theme.Background;
+
+        // 65/35 split, set once the control has a real width.
+        split.HandleCreated += (s, e) =>
+        {
+            try { split.SplitterDistance = (int)(split.Width * 0.62); }
+            catch { /* width not settled yet on some resizes; harmless to skip */ }
+        };
+
+        return split;
+    }
+
+    private Panel BuildFeedPanel(string headerText, out RichTextBox box, bool isChat)
+    {
+        var panel = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Background, Padding = new Padding(10, 8, 10, 10) };
+
+        var header = new Label
+        {
+            Text = headerText,
+            Font = Theme.Small,
+            ForeColor = Theme.MutedText,
+            Dock = DockStyle.Top,
+            Height = 22,
+        };
+
+        var rtb = new RichTextBox
+        {
+            Dock = DockStyle.Fill,
+            ReadOnly = true,
+            BorderStyle = BorderStyle.None,
+            BackColor = Theme.Panel,
+            ForeColor = Theme.Text,
+            Font = isChat ? Theme.Body : Theme.Mono,
+        };
+
+        panel.Controls.Add(rtb);
+        panel.Controls.Add(header);
+        box = rtb;
+        return panel;
+    }
+
+    private Panel BuildBottomBar()
+    {
+        var bar = new Panel { Dock = DockStyle.Bottom, Height = 52, BackColor = Theme.Header };
+
+        var obsLabel = new Label
+        {
+            Text = "OBS password:",
+            ForeColor = Theme.MutedText,
+            Font = Theme.Small,
+            Location = new Point(16, 19),
+            AutoSize = true,
+        };
+        obsPasswordBox = new TextBox
+        {
+            Location = new Point(105, 15),
+            Width = 130,
+            PasswordChar = '*',
+            BackColor = Theme.Secondary,
+            ForeColor = Theme.Text,
+            BorderStyle = BorderStyle.FixedSingle,
+        };
+        obsButton = Theme.MakeButton("Add OBS Browser Source", Theme.Secondary, Theme.Text);
+        obsButton.Location = new Point(245, 11);
+        obsButton.Size = new Size(190, 30);
+        obsButton.Click += OnObsButtonClick;
+
+        updateButton = Theme.MakeButton("Update", Theme.Secondary, Theme.Text);
+        updateButton.Size = new Size(90, 30);
+        updateButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        updateButton.Click += OnUpdateButtonClick;
+
+        bar.Controls.Add(obsLabel);
+        bar.Controls.Add(obsPasswordBox);
+        bar.Controls.Add(obsButton);
+        bar.Controls.Add(updateButton);
+
+        bar.Resize += (s, e) => { updateButton.Location = new Point(bar.ClientSize.Width - updateButton.Width - 16, 11); };
+
+        return bar;
+    }
+
+    // ---------- Readiness ----------
 
     private void CheckReadiness()
     {
@@ -125,6 +264,8 @@ class MainForm : Form
         return "node.exe"; // fall back to PATH resolution
     }
 
+    // ---------- Start / stop ----------
+
     private void OnToggleClick(object sender, EventArgs e)
     {
         if (botProcess == null) StartBot();
@@ -147,7 +288,7 @@ class MainForm : Form
             };
 
             botProcess = new Process { StartInfo = psi, EnableRaisingEvents = true };
-            botProcess.OutputDataReceived += (s, ev) => { if (ev.Data != null) AppendLogThreadSafe(ev.Data); };
+            botProcess.OutputDataReceived += (s, ev) => { if (ev.Data != null) HandleBotOutputLine(ev.Data); };
             botProcess.ErrorDataReceived += (s, ev) => { if (ev.Data != null) AppendLogThreadSafe(ev.Data); };
             botProcess.Exited += (s, ev) =>
             {
@@ -198,6 +339,24 @@ class MainForm : Form
             AppendLog("Bot stopped.");
         }
     }
+
+    private void SetRunning()
+    {
+        statusLabel.Text = "RUNNING";
+        statusLabel.ForeColor = Theme.Running;
+        toggleButton.Text = "Stop Bot";
+        toggleButton.BackColor = Theme.Stopped;
+    }
+
+    private void SetStopped()
+    {
+        statusLabel.Text = "STOPPED";
+        statusLabel.ForeColor = Theme.Stopped;
+        toggleButton.Text = "Start Bot";
+        toggleButton.BackColor = Theme.Accent;
+    }
+
+    // ---------- OBS / Update ----------
 
     private void OnObsButtonClick(object sender, EventArgs e)
     {
@@ -305,25 +464,24 @@ class MainForm : Form
         }
     }
 
-    private void SetRunning()
+    // ---------- Output routing ----------
+
+    private const string ChatPrefix = "@@CHAT@@|";
+
+    private void HandleBotOutputLine(string line)
     {
-        statusLabel.Text = "Status: running";
-        statusLabel.ForeColor = Color.DarkGreen;
-        toggleButton.Text = "Stop Bot";
+        if (line.StartsWith(ChatPrefix, StringComparison.Ordinal)) AppendChatThreadSafe(line);
+        else AppendLogThreadSafe(line);
     }
 
-    private void SetStopped()
-    {
-        statusLabel.Text = "Status: stopped";
-        statusLabel.ForeColor = Color.DarkRed;
-        toggleButton.Text = "Start Bot";
-    }
+    // ---------- Log panel ----------
 
     private void AppendLog(string line)
     {
         logBox.AppendText(line + Environment.NewLine);
         logBox.SelectionStart = logBox.TextLength;
         logBox.ScrollToCaret();
+        TrimIfTooLong(logBox);
     }
 
     private void AppendLogThreadSafe(string line)
@@ -331,6 +489,95 @@ class MainForm : Form
         if (logBox.InvokeRequired) logBox.BeginInvoke(new Action(() => AppendLog(line)));
         else AppendLog(line);
     }
+
+    // ---------- Chat panel ----------
+
+    private void AppendChatThreadSafe(string rawLine)
+    {
+        if (chatBox.InvokeRequired) chatBox.BeginInvoke(new Action(() => AppendChat(rawLine)));
+        else AppendChat(rawLine);
+    }
+
+    private void AppendChat(string rawLine)
+    {
+        // Format: @@CHAT@@|platform|base64(username)|isMod(0/1)|isBroadcaster(0/1)|base64(text)
+        string[] parts = rawLine.Substring(ChatPrefix.Length).Split('|');
+        if (parts.Length < 5) return;
+
+        string platform = parts[0];
+        string username = DecodeBase64(parts[1]);
+        bool isMod = parts[2] == "1";
+        bool isBroadcaster = parts[3] == "1";
+        string text = DecodeBase64(parts[4]);
+
+        chatBox.SelectionStart = chatBox.TextLength;
+        chatBox.SelectionLength = 0;
+
+        AppendColored(chatBox, DateTime.Now.ToString("HH:mm:ss "), Theme.MutedText, Theme.Small);
+
+        Color platformColor = platform == "twitch" ? Color.FromArgb(169, 112, 255) : Color.FromArgb(255, 90, 90);
+        AppendColored(chatBox, "[" + (platform == "twitch" ? "Twitch" : "YouTube") + "] ", platformColor, Theme.Small);
+
+        if (isBroadcaster) AppendColored(chatBox, "[HOST] ", Color.Gold, Theme.Small);
+        else if (isMod) AppendColored(chatBox, "[MOD] ", Theme.Running, Theme.Small);
+
+        AppendColored(chatBox, username + ":  ", ColorForUsername(username), Theme.BodyBold);
+        AppendColored(chatBox, text + Environment.NewLine, Theme.Text, Theme.Body);
+
+        chatBox.ScrollToCaret();
+        TrimIfTooLong(chatBox);
+    }
+
+    private void AppendColored(RichTextBox box, string text, Color color, Font font)
+    {
+        box.SelectionStart = box.TextLength;
+        box.SelectionLength = 0;
+        box.SelectionColor = color;
+        box.SelectionFont = font;
+        box.AppendText(text);
+    }
+
+    private void TrimIfTooLong(RichTextBox box)
+    {
+        // Keep memory/render cost bounded over a long stream, without
+        // wiping formatting on the text that's kept (Lines-based trimming
+        // would lose all coloring, so trim via selection-delete instead).
+        const int maxChars = 60000;
+        const int keepChars = 45000;
+        if (box.TextLength > maxChars)
+        {
+            box.Select(0, box.TextLength - keepChars);
+            box.SelectedText = string.Empty;
+        }
+    }
+
+    private Color ColorForUsername(string username)
+    {
+        Color color;
+        if (userColors.TryGetValue(username, out color)) return color;
+        int hash = 0;
+        unchecked
+        {
+            foreach (char c in username) hash = hash * 31 + c;
+        }
+        color = UserPalette[Math.Abs(hash) % UserPalette.Length];
+        userColors[username] = color;
+        return color;
+    }
+
+    private string DecodeBase64(string s)
+    {
+        try
+        {
+            return Encoding.UTF8.GetString(Convert.FromBase64String(s));
+        }
+        catch
+        {
+            return s;
+        }
+    }
+
+    // ---------- Shutdown ----------
 
     private void OnFormClosing(object sender, FormClosingEventArgs e)
     {

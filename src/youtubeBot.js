@@ -4,6 +4,7 @@ const commands = require('./commands');
 const configStore = require('./configStore');
 const alertServer = require('./alertServer');
 const logger = require('./logger');
+const { emitChatLine } = require('./chatEmit');
 const { getAuthedClient } = require('./youtubeAuth');
 
 const DEFAULT_POLL_MS = 5000;
@@ -123,6 +124,8 @@ async function start() {
         const text = item.snippet.displayMessage || '';
         const isMod = Boolean(author.isChatModerator) || Boolean(author.isChatOwner);
         const isBroadcaster = Boolean(author.isChatOwner);
+
+        emitChatLine('youtube', author.displayName, isMod, isBroadcaster, text);
 
         const ctx = {
           reply: async (msg) => {
