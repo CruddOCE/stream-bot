@@ -2,12 +2,15 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const WebSocket = require('ws');
+const logger = require('./logger');
 
 let wss = null;
 let server = null;
+let listeningPort = null;
 
 function start() {
   const port = Number(process.env.ALERT_SERVER_PORT) || 8090;
+  listeningPort = port;
 
   const app = express();
   app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -17,17 +20,40 @@ function start() {
 
   wss.on('connection', () => {
     console.log('[alerts] Overlay connected');
+    logger.action('overlay-connect', 'Overlay browser source connected');
+  });
+
+  wss.on('close', () => {
+    logger.info('overlay-connect', 'Overlay browser source disconnected');
   });
 
   server.listen(port, () => {
     console.log(`[alerts] Overlay running at http://localhost:${port}/overlay.html — add this as an OBS Browser Source`);
+    logger.action('alert-server', `Listening at http://localhost:${port}/overlay.html`);
+  });
+
+  server.on('error', (err) => {
+    console.error('[alerts] Server error:', err.message);
+    logger.action('alert-server', `Failed to start on port ${port}: ${err.message}`, false);
   });
 
   return server;
 }
 
 function broadcast(payload) {
-  if (!wss) return;
+  if (!wss) {
+    logger.action('alert-broadcast', `${payload.kind} broadcast attempted but the alert server isn't running`, false);
+    return;
+  }
+  const connectedClients = Array.from(wss.clients).filter((c) => c.readyState === WebSocket.OPEN).length;
+  if (connectedClients === 0) {
+    logger.action(
+      'alert-broadcast',
+      `${payload.kind} broadcast attempted but no overlay is connected -- add http://localhost:${listeningPort}/overlay.html as an OBS Browser Source (or open it in a browser to test)`,
+      false
+    );
+    return;
+  }
   const data = JSON.stringify(payload);
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) client.send(data);

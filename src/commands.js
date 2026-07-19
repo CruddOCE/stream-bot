@@ -2,6 +2,7 @@ const configStore = require('./configStore');
 const alertServer = require('./alertServer');
 const state = require('./state');
 const twitchApi = require('./twitchApi');
+const logger = require('./logger');
 
 const startTime = Date.now();
 const PREFIX = process.env.BOT_PREFIX || '!';
@@ -45,7 +46,10 @@ const BUILTINS = {
     const target = targetRaw.replace(/^@/, '');
 
     if (message.platform === 'twitch') {
-      const info = await twitchApi.getChannelInfo(target).catch(() => null);
+      const info = await twitchApi.getChannelInfo(target).catch((err) => {
+        logger.action('twitch-api', `!so lookup for "${target}" failed: ${err.message}`, false);
+        return null;
+      });
       if (info) {
         return info.game
           ? `Go check out ${info.displayName} at twitch.tv/${info.login} — they were last streaming ${info.game}!`
@@ -67,22 +71,40 @@ async function handle(message, ctx) {
   const cmd = rawCmd.toLowerCase();
   if (!cmd) return false;
 
+  const logWho = `user=${message.username} platform=${message.platform || 'unknown'}`;
+
   if (BUILTINS[cmd]) {
     if (MOD_ONLY.has(cmd) && !message.isMod && !message.isBroadcaster) {
-      await ctx.reply('only mods can use that command.');
+      await safeReply(ctx, 'only mods can use that command.', `!${cmd}`, logWho);
       return true;
     }
-    await ctx.reply(await BUILTINS[cmd](message, args));
+    let result;
+    try {
+      result = await BUILTINS[cmd](message, args);
+    } catch (err) {
+      logger.action('command', `!${cmd} ${logWho} threw an error: ${err.message}`, false);
+      return true;
+    }
+    await safeReply(ctx, result, `!${cmd}`, logWho);
     return true;
   }
 
   const custom = configStore.get('commands') || {};
   if (Object.prototype.hasOwnProperty.call(custom, cmd)) {
-    await ctx.reply(custom[cmd]);
+    await safeReply(ctx, custom[cmd], `!${cmd}`, logWho);
     return true;
   }
 
   return false;
+}
+
+async function safeReply(ctx, message, cmdLabel, logWho) {
+  try {
+    await ctx.reply(message);
+    logger.action('command', `${cmdLabel} ${logWho}`);
+  } catch (err) {
+    logger.action('command', `${cmdLabel} ${logWho} reply failed: ${err.message}`, false);
+  }
 }
 
 module.exports = { handle, BUILTINS };

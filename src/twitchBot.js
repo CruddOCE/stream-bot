@@ -4,6 +4,7 @@ const commands = require('./commands');
 const configStore = require('./configStore');
 const alertServer = require('./alertServer');
 const state = require('./state');
+const logger = require('./logger');
 
 function fillTemplate(str, vars) {
   return str.replace(/\{(\w+)\}/g, (_, key) => (key in vars ? vars[key] : `{${key}}`));
@@ -11,9 +12,14 @@ function fillTemplate(str, vars) {
 
 function fireAlert(type, defaultTemplate, vars) {
   const alerts = configStore.get('alerts');
-  if (!alerts || !alerts.enabled) return;
+  if (!alerts || !alerts.enabled) {
+    logger.info('twitch-alert', `${type} alert skipped (alerts disabled)`);
+    return;
+  }
   const template = (alerts.templates && alerts.templates[type]) || defaultTemplate;
-  alertServer.alert(type, fillTemplate(template, vars));
+  const message = fillTemplate(template, vars);
+  alertServer.alert(type, message);
+  logger.action('twitch-alert', `${type}: ${message}`);
 }
 
 function start() {
@@ -23,6 +29,7 @@ function start() {
 
   if (!channel || !username || !token) {
     console.error('[twitch] Missing TWITCH_CHANNEL / TWITCH_BOT_USERNAME / TWITCH_OAUTH_TOKEN in .env — skipping Twitch.');
+    logger.action('twitch-connect', 'Skipped: missing TWITCH_CHANNEL / TWITCH_BOT_USERNAME / TWITCH_OAUTH_TOKEN in .env', false);
     return null;
   }
 
@@ -34,10 +41,12 @@ function start() {
 
   client.on('connected', () => {
     console.log(`[twitch] Connected to #${channel} as ${username}`);
+    logger.action('twitch-connect', `Connected to #${channel} as ${username}`);
   });
 
   client.on('disconnected', (reason) => {
     console.warn(`[twitch] Disconnected: ${reason}`);
+    logger.action('twitch-connect', `Disconnected: ${reason}`, false);
   });
 
   client.on('subscription', (chan, subUsername, method, message, userstate) => {
@@ -101,15 +110,27 @@ function start() {
     });
 
     if (modResult) {
-      console.log(`[twitch] mod-action user=${tags.username} reason="${modResult.reason}" action=${modResult.action}`);
+      const logMsg = `user=${tags.username} reason="${modResult.reason}" action=${modResult.action}`;
+      console.log(`[twitch] mod-action ${logMsg}`);
       if (modResult.action === 'warn') {
         await client.say(target, `@${displayName} please follow chat rules (${modResult.reason}).`);
+        logger.action('twitch-moderation', logMsg);
       } else if (modResult.action === 'delete' && tags.id) {
-        await client.deletemessage(target, tags.id).catch((e) => console.error('[twitch] delete failed:', e.message));
+        await client
+          .deletemessage(target, tags.id)
+          .then(() => logger.action('twitch-moderation', logMsg))
+          .catch((e) => {
+            console.error('[twitch] delete failed:', e.message);
+            logger.action('twitch-moderation', `${logMsg} error="${e.message}"`, false);
+          });
       } else if (modResult.action === 'timeout') {
         await client
           .timeout(target, tags.username, modResult.timeoutSeconds, modResult.reason)
-          .catch((e) => console.error('[twitch] timeout failed:', e.message));
+          .then(() => logger.action('twitch-moderation', logMsg))
+          .catch((e) => {
+            console.error('[twitch] timeout failed:', e.message);
+            logger.action('twitch-moderation', `${logMsg} error="${e.message}"`, false);
+          });
       }
       return;
     }
@@ -120,7 +141,10 @@ function start() {
     );
   });
 
-  client.connect().catch((err) => console.error('[twitch] Connection failed:', err.message));
+  client.connect().catch((err) => {
+    console.error('[twitch] Connection failed:', err.message);
+    logger.action('twitch-connect', `Connection failed: ${err.message}`, false);
+  });
 
   return client;
 }

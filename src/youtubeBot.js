@@ -3,6 +3,7 @@ const moderation = require('./moderation');
 const commands = require('./commands');
 const configStore = require('./configStore');
 const alertServer = require('./alertServer');
+const logger = require('./logger');
 const { getAuthedClient } = require('./youtubeAuth');
 
 const DEFAULT_POLL_MS = 5000;
@@ -13,9 +14,14 @@ function fillTemplate(str, vars) {
 
 function fireAlert(type, defaultTemplate, vars) {
   const alerts = configStore.get('alerts');
-  if (!alerts || !alerts.enabled) return;
+  if (!alerts || !alerts.enabled) {
+    logger.info('youtube-alert', `${type} alert skipped (alerts disabled)`);
+    return;
+  }
   const template = (alerts.templates && alerts.templates[type]) || defaultTemplate;
-  alertServer.alert(type, fillTemplate(template, vars));
+  const message = fillTemplate(template, vars);
+  alertServer.alert(type, message);
+  logger.action('youtube-alert', `${type}: ${message}`);
 }
 
 async function findLiveChatId(youtube, channelId) {
@@ -45,6 +51,7 @@ async function start() {
 
   if (!apiKey || !channelId) {
     console.error('[youtube] Missing YOUTUBE_API_KEY / YOUTUBE_CHANNEL_ID in .env — skipping YouTube.');
+    logger.action('youtube-connect', 'Skipped: missing YOUTUBE_API_KEY / YOUTUBE_CHANNEL_ID in .env', false);
     return null;
   }
 
@@ -61,16 +68,19 @@ async function start() {
 
   const liveChatId = await findLiveChatId(youtube, channelId).catch((err) => {
     console.error('[youtube] Failed to find an active live stream:', err.message);
+    logger.action('youtube-connect', `Failed to find an active live stream: ${err.message}`, false);
     return null;
   });
 
   if (!liveChatId) {
     console.warn('[youtube] No active live stream found for this channel. The bot will keep retrying every 30s.');
+    logger.info('youtube-connect', 'No active live stream found -- retrying in 30s');
     setTimeout(() => start(), 30000);
     return null;
   }
 
   console.log(`[youtube] Connected to live chat ${liveChatId}${canModerate ? '' : ' (read-only)'}`);
+  logger.action('youtube-connect', `Connected to live chat ${liveChatId}${canModerate ? '' : ' (read-only)'}`);
 
   let nextPageToken;
   let pollIntervalMs = DEFAULT_POLL_MS;
@@ -136,12 +146,25 @@ async function start() {
         const modResult = moderation.evaluate({ username: author.channelId, text, isMod, isBroadcaster });
 
         if (modResult) {
-          console.log(`[youtube] mod-action user=${author.displayName} reason="${modResult.reason}" action=${modResult.action}`);
-          if (!canModerate) continue;
+          const logMsg = `user=${author.displayName} reason="${modResult.reason}" action=${modResult.action}`;
+          console.log(`[youtube] mod-action ${logMsg}`);
+          if (!canModerate) {
+            logger.info('youtube-moderation', `${logMsg} (read-only, not applied)`);
+            continue;
+          }
           if (modResult.action === 'warn') {
-            await ctx.reply(`please follow chat rules (${modResult.reason}).`).catch(() => {});
+            await ctx
+              .reply(`please follow chat rules (${modResult.reason}).`)
+              .then(() => logger.action('youtube-moderation', logMsg))
+              .catch((e) => logger.action('youtube-moderation', `${logMsg} error="${e.message}"`, false));
           } else if (modResult.action === 'delete') {
-            await youtube.liveChatMessages.delete({ id: item.id }).catch((e) => console.error('[youtube] delete failed:', e.message));
+            await youtube.liveChatMessages
+              .delete({ id: item.id })
+              .then(() => logger.action('youtube-moderation', logMsg))
+              .catch((e) => {
+                console.error('[youtube] delete failed:', e.message);
+                logger.action('youtube-moderation', `${logMsg} error="${e.message}"`, false);
+              });
           } else if (modResult.action === 'timeout') {
             await youtube.liveChatBans
               .insert({
@@ -155,7 +178,11 @@ async function start() {
                   },
                 },
               })
-              .catch((e) => console.error('[youtube] timeout failed:', e.message));
+              .then(() => logger.action('youtube-moderation', logMsg))
+              .catch((e) => {
+                console.error('[youtube] timeout failed:', e.message);
+                logger.action('youtube-moderation', `${logMsg} error="${e.message}"`, false);
+              });
           }
           continue;
         }
@@ -167,6 +194,7 @@ async function start() {
       }
     } catch (err) {
       console.error('[youtube] Polling error:', err.message);
+      logger.action('youtube-poll', `Polling error: ${err.message}`, false);
     }
 
     setTimeout(poll, pollIntervalMs);
