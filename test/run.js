@@ -37,7 +37,26 @@ const commands = require('../src/commands');
 const moderation = require('../src/moderation');
 const state = require('../src/state');
 
+// The batch installer previously broke because it had Unix-style LF-only
+// line endings, which cmd.exe's parser handles unreliably (it silently
+// fragments and misexecutes parts of the script, especially around CALLing
+// other batch files like npm.cmd). Catch that regression here instead of
+// discovering it by double-clicking a broken installer.
+function checkBatchFileLineEndings() {
+  const root = path.join(__dirname, '..');
+  const batFiles = fs.readdirSync(root).filter((f) => f.endsWith('.bat'));
+  assert.ok(batFiles.length > 0, 'expected at least one .bat file to check');
+  for (const file of batFiles) {
+    const text = fs.readFileSync(path.join(root, file), 'utf8');
+    const hasLoneLF = /(?<!\r)\n/.test(text);
+    assert.ok(!hasLoneLF, `${file} has LF-only line endings somewhere — must be CRLF throughout for cmd.exe to parse it reliably`);
+  }
+  console.log(`batch file line endings (${batFiles.join(', ')}): ok`);
+}
+
 async function run() {
+  checkBatchFileLineEndings();
+
   // --- Commands ---
   let replied = '';
   const ctx = { reply: (msg) => { replied = msg; } };
