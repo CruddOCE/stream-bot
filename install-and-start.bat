@@ -31,6 +31,9 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+echo Creating a desktop shortcut to the control panel...
+powershell -NoProfile -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%USERPROFILE%\Desktop\stream-bot.lnk'); $s.TargetPath='%~dp0stream-bot-control.exe'; $s.WorkingDirectory='%~dp0'; $s.IconLocation='%~dp0stream-bot-control.exe,0'; $s.Description='stream-bot control panel - start/stop the bot, live chat, OBS setup'; $s.Save()" >nul 2>nul
+
 if not exist ".env" (
   echo.
   echo No .env found - running the setup wizard...

@@ -58,6 +58,10 @@ first, then run it again.
 Re-running it later is safe: if `.env` already exists it'll ask whether you
 want to redo the setup wizard, then start the bot either way.
 
+It also creates (or refreshes) a **`stream-bot` shortcut on your Desktop**
+pointing at the control panel below, so you don't need to come back to this
+folder to launch it day-to-day.
+
 ## Day-to-day: stream-bot-control.exe
 
 Once you've set up once, use [`stream-bot-control.exe`](stream-bot-control.exe)
