@@ -27,8 +27,9 @@ function getAuthedClient() {
 
 // Runs Google's OAuth consent flow via a local loopback server and resolves
 // with the token set (including refresh_token, if granted). Requires an
-// OAuth 2.0 Client ID ("Desktop app" type) with REDIRECT_URI added to its
-// authorized redirect URIs.
+// OAuth 2.0 Client ID ("Web application" type -- "Desktop app" type has no
+// redirect URI field) with REDIRECT_URI added to its authorized redirect
+// URIs.
 //
 // options.onAuthUrl(url), if given, is called instead of the default
 // print-and-open behavior — lets callers (like the setup wizard) format

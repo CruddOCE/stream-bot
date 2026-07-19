@@ -3,9 +3,10 @@
 // if you want the bot to post/delete messages or time out users on
 // YouTube — reading chat only needs YOUTUBE_API_KEY.
 //
-// Requires an OAuth 2.0 Client ID ("Desktop app" type) from Google Cloud
-// Console with YouTube Data API v3 enabled, and http://localhost:3941/oauth2callback
-// added to its authorized redirect URIs.
+// Requires an OAuth 2.0 Client ID ("Web application" type -- "Desktop app"
+// type has no redirect URI field) from Google Cloud Console with YouTube
+// Data API v3 enabled, and http://localhost:3941/oauth2callback added to
+// its authorized redirect URIs.
 //
 // Prefer a fully guided setup? Run: npm run setup
 

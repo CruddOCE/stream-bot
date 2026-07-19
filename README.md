@@ -132,10 +132,14 @@ minutes), you can always finish that one piece manually — see below.
 4. Set `ENABLE_YOUTUBE=true`.
 5. **Optional but recommended:** to let the bot actually reply, delete
    messages, and time out users on YouTube (not just log what it would do),
-   create an **OAuth 2.0 Client ID** (type: Desktop app) in the same
-   Credentials page, add `http://localhost:3941/oauth2callback` to its
-   authorized redirect URIs, and put the Client ID/Secret in `.env` as
-   `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET`. Then run:
+   create an **OAuth 2.0 Client ID** on the same Credentials page — click
+   "+ CREATE CREDENTIALS" → "OAuth client ID". For **Application type**,
+   pick **"Web application"** (not "Desktop app" — despite this being a
+   desktop tool, only "Web application" gives you a redirect URI field to
+   fill in, which this flow needs). Under **Authorized redirect URIs**,
+   add `http://localhost:3941/oauth2callback` exactly, then put the
+   Client ID/Secret in `.env` as `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET`.
+   Then run:
 
    ```
    npm run yt-auth

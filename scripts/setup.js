@@ -95,7 +95,8 @@ async function setupYoutube(env) {
   await confirm('Enabled it?', true);
 
   step(3, 'Create an API key');
-  console.log('Click "Create Credentials" -> "API key".');
+  console.log('Click "+ CREATE CREDENTIALS" near the top of the page, then pick "API key" from the dropdown (NOT "OAuth client ID" or "Service account" - those are for later, if at all).');
+  console.log('A key appears immediately in a popup - copy it from there.');
   link('https://console.cloud.google.com/apis/credentials');
   env.YOUTUBE_API_KEY = await ask('Paste the API key');
 
@@ -110,8 +111,9 @@ async function setupYoutube(env) {
 
   if (wantOAuth) {
     step(5, 'Create an OAuth 2.0 Client ID');
-    console.log('Click "Create Credentials" -> "OAuth client ID" -> type "Desktop app".');
-    console.log(`Add this as an authorized redirect URI: ${youtubeAuth.REDIRECT_URI}`);
+    console.log('Click "+ CREATE CREDENTIALS" -> "OAuth client ID".');
+    console.log('For Application type, pick "Web application" (NOT "Desktop app" - only "Web application" has a redirect URI field, which this needs).');
+    console.log(`Under "Authorized redirect URIs", add exactly: ${youtubeAuth.REDIRECT_URI}`);
     link('https://console.cloud.google.com/apis/credentials');
     env.YOUTUBE_CLIENT_ID = await ask('Paste the OAuth Client ID');
     env.YOUTUBE_CLIENT_SECRET = await ask('Paste the OAuth Client Secret');
@@ -153,7 +155,12 @@ async function main() {
   }
 
   console.log('\nInstalling dependencies (npm install)...');
-  const install = spawnSync('npm', ['install'], { stdio: 'inherit', shell: true, cwd: ROOT });
+  // Passing a single command string (not an args array) with shell:true
+  // avoids Node's DEP0190 warning, which only fires for the array-args
+  // form since that requires Node to join arguments into a shell command
+  // internally. shell:true itself is still needed here so Windows
+  // resolves npm.cmd correctly.
+  const install = spawnSync('npm install', { stdio: 'inherit', shell: true, cwd: ROOT });
   if (install.status !== 0) {
     console.error('\nnpm install failed — fix that first, then re-run: npm run setup');
     rl.close();
