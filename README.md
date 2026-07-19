@@ -64,14 +64,32 @@ Once you've set up once, use [`stream-bot-control.exe`](stream-bot-control.exe)
 to turn the bot on and off around your streams — no console window, no
 typing. Double-click it and you get a small window with:
 
-- A **Start Bot / Stop Bot** button
-- A status indicator (running/stopped)
-- A live log of what the bot is doing (useful for catching errors mid-stream)
+- A **Start Bot / Stop Bot** button — click it after you go live (or
+  before; Twitch chat is joinable regardless of live status, and YouTube
+  just retries every 30s until a stream is found).
+- **Add OBS Browser Source** — connects to OBS's WebSocket server and adds
+  the overlay to your current scene automatically, with "Control audio via
+  OBS" already turned on (see [OBS overlay + alerts](#obs-overlay--alerts)
+  below). Needs your OBS WebSocket password in the field next to it, if
+  you've set one.
+- **Update** — pulls the latest version from GitHub and reinstalls
+  dependencies. The app closes itself, updates, then reopens automatically
+  (needed because Windows won't let a running program overwrite its own
+  file) — a console window shows progress in between. Any local edits to
+  your `config/*.json` files are preserved.
+- A status indicator (running/stopped) and a live log of what the bot is
+  doing.
 
 **Closing the window stops the bot automatically** — that's the whole
 "turn it off after streaming" step, nothing else to remember. If the bot
 process crashes or exits on its own for any reason, the window detects that
 and updates itself back to "stopped" too.
+
+Every command run, moderation action, alert, and connection attempt is also
+written to `logs/bot.log` (gitignored), tagged OK/FAIL with a timestamp —
+so if something silently didn't work (e.g. an alert fired but no OBS
+overlay was connected to receive it), it's not actually silent; check that
+file after a stream.
 
 It's the same kind of tiny compiled launcher as the installer (source in
 [`installer/ControlProgram.cs`](installer/ControlProgram.cs)) — it just
@@ -186,6 +204,24 @@ during a real stream before granting write access.
 The bot runs a small local server (default `http://localhost:8090`) that
 serves an overlay page and pushes alerts/TTS to it over a WebSocket.
 
+### Easiest: the "Add OBS Browser Source" button
+
+In [`stream-bot-control.exe`](stream-bot-control.exe), enter your OBS
+WebSocket password (if you set one — find it in OBS under **Tools →
+WebSocket Server Settings → Show Connect Info**) and click **Add OBS
+Browser Source**. It connects to OBS's built-in WebSocket server (OBS 28+)
+and adds the overlay to your current scene with "Control audio via OBS"
+already turned on — no manual steps in OBS's UI at all.
+
+This talks to OBS using its documented WebSocket protocol
+(`scripts/addObsSource.js`) — connection failures (OBS not running,
+WebSocket Server not enabled, wrong password) are reported clearly in the
+log rather than failing silently. If a source with the same name already
+exists, delete it in OBS first, or set `OBS_SOURCE_NAME` in `.env` to a
+different name.
+
+### Manual setup
+
 1. In OBS, add a **Browser Source**.
 2. Set the URL to `http://localhost:8090/overlay.html` (change the port via
    `ALERT_SERVER_PORT` in `.env` if you changed it).
@@ -295,3 +331,8 @@ neither of those is something this script does automatically).
 - Overlay TTS quality depends on whatever voices your OS/Chromium have
   installed — it's the browser's built-in speech synthesis, not a
   dedicated TTS service.
+- The "Add OBS Browser Source" button is implemented against OBS's
+  documented WebSocket protocol and its connection/error handling is
+  tested, but the actual "does it add the source correctly" step hasn't
+  been confirmed against a live OBS session yet — if it doesn't work,
+  the log will say why; fall back to the manual steps above.
