@@ -5,6 +5,7 @@
   "description": "Local Twitch + YouTube live chat bot with custom commands and auto-moderation",
   "main": "index.js",
   "scripts": {
+    "setup": "node scripts/setup.js",
     "start": "node index.js",
     "test": "node test/run.js",
     "yt-auth": "node scripts/getYoutubeToken.js",

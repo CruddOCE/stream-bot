@@ -39,7 +39,29 @@ stream first and watch the console output before trusting it on a real one.
   moderator in your channel: type `/mod <botname>` in your own Twitch chat.
 - For YouTube, a Google account and a free Google Cloud project.
 
-## Setup
+## Quick setup (recommended)
+
+Run the guided wizard — it installs dependencies, asks which platform(s) you
+want, and walks you through each one, printing (and opening) the exact page
+you need to be on at every step:
+
+```
+npm run setup
+```
+
+Then:
+
+```
+npm start
+```
+
+Safe to re-run `npm run setup` any time — to redo a step, add the other
+platform, or refresh a login that expired.
+
+If a step gets stuck (browser doesn't open, login times out after 5
+minutes), you can always finish that one piece manually — see below.
+
+## Manual setup
 
 1. Install dependencies:
 
