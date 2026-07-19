@@ -84,6 +84,13 @@ just a bare console window:
   OBS" already turned on (see [OBS overlay + alerts](#obs-overlay--alerts)
   below). Needs your OBS WebSocket password in the field next to it, if
   you've set one.
+- **Test Alert** — fires a real alert popup + spoken TTS through the
+  overlay, so you can confirm OBS is actually receiving and playing them
+  correctly before you go live, instead of waiting for a real sub/cheer/
+  raid to find out. Only works while the bot is running (that's what's
+  hosting the overlay connection) — it'll tell you to start the bot first
+  if it isn't, and it'll tell you if no OBS overlay is connected at all
+  rather than pretending it worked.
 - **Update** — pulls the latest version from GitHub and reinstalls
   dependencies. The app closes itself, updates, then reopens automatically
   (needed because Windows won't let a running program overwrite its own

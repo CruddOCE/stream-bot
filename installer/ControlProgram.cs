@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Net.Http;
 using System.Text;
 using System.Windows.Forms;
 
@@ -64,6 +65,7 @@ class MainForm : Form
     private Process botProcess;
     private Button toggleButton;
     private Button obsButton;
+    private Button testAlertButton;
     private Button updateButton;
     private TextBox obsPasswordBox;
     private Label statusLabel;
@@ -223,6 +225,11 @@ class MainForm : Form
         obsButton.Size = new Size(190, 30);
         obsButton.Click += OnObsButtonClick;
 
+        testAlertButton = Theme.MakeButton("Test Alert", Theme.Secondary, Theme.Text);
+        testAlertButton.Location = new Point(445, 11);
+        testAlertButton.Size = new Size(100, 30);
+        testAlertButton.Click += OnTestAlertClick;
+
         updateButton = Theme.MakeButton("Update", Theme.Secondary, Theme.Text);
         updateButton.Size = new Size(90, 30);
         updateButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -231,6 +238,7 @@ class MainForm : Form
         bar.Controls.Add(obsLabel);
         bar.Controls.Add(obsPasswordBox);
         bar.Controls.Add(obsButton);
+        bar.Controls.Add(testAlertButton);
         bar.Controls.Add(updateButton);
 
         bar.Resize += (s, e) => { updateButton.Location = new Point(bar.ClientSize.Width - updateButton.Width - 16, 11); };
@@ -356,12 +364,71 @@ class MainForm : Form
         toggleButton.BackColor = Theme.Accent;
     }
 
-    // ---------- OBS / Update ----------
+    // ---------- OBS / Test Alert / Update ----------
 
     private void OnObsButtonClick(object sender, EventArgs e)
     {
         var env = new Dictionary<string, string> { { "OBS_WEBSOCKET_PASSWORD", obsPasswordBox.Text } };
         RunNodeScriptOneShot("scripts/addObsSource.js", env, obsButton);
+    }
+
+    // Fires a real alert + TTS through the running bot's alert server, so
+    // you can confirm the OBS Browser Source is actually connected (and
+    // hearing/showing things correctly) before you go live, instead of
+    // waiting for a real sub/cheer/raid to find out.
+    private async void OnTestAlertClick(object sender, EventArgs e)
+    {
+        if (botProcess == null)
+        {
+            AppendLog("Start the bot first, then try Test Alert -- the alert server only runs while the bot is running.");
+            return;
+        }
+
+        testAlertButton.Enabled = false;
+        string port = GetEnvValue("ALERT_SERVER_PORT", "8090");
+        AppendLog("Sending test alert...");
+
+        try
+        {
+            using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) })
+            {
+                string response = await client.GetStringAsync("http://localhost:" + port + "/test-alert");
+                if (response.Contains("\"connectedOverlays\":0"))
+                {
+                    AppendLog("Test alert sent, but no OBS overlay is connected -- add http://localhost:" + port + "/overlay.html as an OBS Browser Source first.");
+                }
+                else
+                {
+                    AppendLog("Test alert sent -- check OBS for the popup and listen for the voice/chime.");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLog("Could not reach the alert server: " + ex.Message);
+        }
+        finally
+        {
+            testAlertButton.Enabled = true;
+        }
+    }
+
+    // Minimal .env reader -- just enough to pick up a non-default
+    // ALERT_SERVER_PORT if one was set, without pulling in a full parser.
+    private string GetEnvValue(string key, string defaultValue)
+    {
+        string envPath = Path.Combine(rootDir, ".env");
+        if (!File.Exists(envPath)) return defaultValue;
+        foreach (string line in File.ReadAllLines(envPath))
+        {
+            string trimmed = line.Trim();
+            if (trimmed.StartsWith(key + "=", StringComparison.OrdinalIgnoreCase))
+            {
+                string value = trimmed.Substring(key.Length + 1).Trim();
+                return value.Length > 0 ? value : defaultValue;
+            }
+        }
+        return defaultValue;
     }
 
     private void OnUpdateButtonClick(object sender, EventArgs e)

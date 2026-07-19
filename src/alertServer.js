@@ -15,6 +15,18 @@ function start() {
   const app = express();
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
+  // Lets the control panel trigger a real alert + TTS on demand, so you
+  // can confirm the OBS Browser Source is actually connected and its
+  // audio is routed correctly before going live -- without waiting for
+  // a real sub/cheer/raid to test it.
+  app.get('/test-alert', (req, res) => {
+    const connected = getConnectedCount();
+    alert('test', 'Test alert! If you can see this and hear a sound, OBS is connected correctly.');
+    speak('This is a test alert from stream bot. If you can hear this, your OBS audio is set up correctly.');
+    logger.action('test-alert', `Triggered manually (${connected} overlay(s) connected)`);
+    res.json({ ok: true, connectedOverlays: connected });
+  });
+
   server = http.createServer(app);
   wss = new WebSocket.Server({ server });
 
@@ -40,12 +52,17 @@ function start() {
   return server;
 }
 
+function getConnectedCount() {
+  if (!wss) return 0;
+  return Array.from(wss.clients).filter((c) => c.readyState === WebSocket.OPEN).length;
+}
+
 function broadcast(payload) {
   if (!wss) {
     logger.action('alert-broadcast', `${payload.kind} broadcast attempted but the alert server isn't running`, false);
     return;
   }
-  const connectedClients = Array.from(wss.clients).filter((c) => c.readyState === WebSocket.OPEN).length;
+  const connectedClients = getConnectedCount();
   if (connectedClients === 0) {
     logger.action(
       'alert-broadcast',
