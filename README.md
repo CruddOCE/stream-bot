@@ -131,15 +131,23 @@ minutes), you can always finish that one piece manually — see below.
    `UC...` — find it in YouTube Studio → Settings → Channel → Advanced).
 4. Set `ENABLE_YOUTUBE=true`.
 5. **Optional but recommended:** to let the bot actually reply, delete
-   messages, and time out users on YouTube (not just log what it would do),
-   create an **OAuth 2.0 Client ID** on the same Credentials page — click
+   messages, and time out users on YouTube (not just log what it would do):
+
+   a. **Configure the [OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent) first** — skip this and you'll hit `Access blocked... Error 403: access_denied` later even with a correct Client ID. If this is your first OAuth client in the project:
+      - User Type: **External** (unless you have a Google Workspace account)
+      - App name/support email/developer email: anything, your own email
+      - Click through Scopes without adding any
+      - On the **Test users** step, click **"+ ADD USERS"** and add the Google account you'll actually log in with (yourself) — apps left in "Testing" publishing status only allow pre-approved test-user emails to log in. **This is the step that fixes `access_denied`.**
+
+   b. Create an **OAuth 2.0 Client ID** on the [Credentials page](https://console.cloud.google.com/apis/credentials) — click
    "+ CREATE CREDENTIALS" → "OAuth client ID". For **Application type**,
    pick **"Web application"** (not "Desktop app" — despite this being a
    desktop tool, only "Web application" gives you a redirect URI field to
    fill in, which this flow needs). Under **Authorized redirect URIs**,
    add `http://localhost:3941/oauth2callback` exactly, then put the
    Client ID/Secret in `.env` as `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET`.
-   Then run:
+
+   c. Log in with the **same account** you added as a test user in step (a) — a different account will hit `access_denied` again. Run:
 
    ```
    npm run yt-auth

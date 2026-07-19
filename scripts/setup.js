@@ -110,7 +110,17 @@ async function setupYoutube(env) {
   );
 
   if (wantOAuth) {
-    step(5, 'Create an OAuth 2.0 Client ID');
+    step(5, 'Configure the OAuth consent screen');
+    console.log('This is required before Google will let anyone log in - skip it and you will hit "Access blocked... Error 403: access_denied" later, even with a correct Client ID.');
+    console.log('If this is your first OAuth client in this project, you will be asked to set it up:');
+    console.log('  - User Type: choose "External" (unless you have a Google Workspace account)');
+    console.log('  - App name: anything, e.g. "stream-bot"; User support email + Developer contact email: your own');
+    console.log('  - Click through Scopes without adding any (not required for this)');
+    console.log('  - On the "Test users" step, click "+ ADD USERS" and add the Google account you will actually log in with (yourself). This is the step that prevents the access_denied error.');
+    link('https://console.cloud.google.com/apis/credentials/consent');
+    await confirm('Consent screen configured, and you added yourself as a test user?', true);
+
+    step(6, 'Create an OAuth 2.0 Client ID');
     console.log('Click "+ CREATE CREDENTIALS" -> "OAuth client ID".');
     console.log('For Application type, pick "Web application" (NOT "Desktop app" - only "Web application" has a redirect URI field, which this needs).');
     console.log(`Under "Authorized redirect URIs", add exactly: ${youtubeAuth.REDIRECT_URI}`);
@@ -118,7 +128,8 @@ async function setupYoutube(env) {
     env.YOUTUBE_CLIENT_ID = await ask('Paste the OAuth Client ID');
     env.YOUTUBE_CLIENT_SECRET = await ask('Paste the OAuth Client Secret');
 
-    step(6, 'Log in with your YouTube/Google account');
+    step(7, 'Log in with your YouTube/Google account');
+    console.log('Log in with the SAME account you added as a test user in step 5 - logging in with a different account will hit the access_denied error again.');
     console.log('A browser tab will open — log in with the account that owns your channel and approve access.');
     await ask('Press Enter when you\'re ready');
 
