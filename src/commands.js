@@ -34,6 +34,11 @@ const BUILTINS = {
     alertServer.speak(joke);
     return joke;
   },
+  pp: (message) => {
+    const name = message.displayName || message.username;
+    const length = Math.floor(Math.random() * 100) + 1;
+    return `${name}'s pp is ${length} inches long!`;
+  },
   so: async (message, args) => {
     const targetRaw = args[0] || state.getLastRaider(message.platform);
     if (!targetRaw) return 'No one to shout out yet — try !so <username>.';
@@ -52,7 +57,7 @@ const BUILTINS = {
   },
 };
 
-// message: { text, username, isMod, isBroadcaster, platform }
+// message: { text, username, displayName, isMod, isBroadcaster, platform }
 // ctx: { reply(text) }
 async function handle(message, ctx) {
   const text = message.text.trim();

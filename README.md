@@ -14,7 +14,8 @@ stream first and watch the console output before trusting it on a real one.
   chat at the same time.
 - Built-in commands: `!commands`, `!uptime`, `!joke` (random clean joke from
   `config/jokes.json`, no racist material — add/remove your own anytime),
-  `!so` (mod-only shoutout — see below).
+  `!so` (mod-only shoutout — see below), `!pp` (random 1-100 inch joke
+  command, replies "`<name>`'s pp is X inches long!").
 - Custom commands you define yourself in `config/commands.json` — no code
   editing, and changes apply live (no restart needed).
 - Auto-moderation: banned words, link blocking (with an allowlist), excessive

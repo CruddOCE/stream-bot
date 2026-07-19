@@ -62,6 +62,13 @@ async function run() {
   assert.ok(jokesList.includes(replied), 'joke reply should come from config/jokes.json');
   console.log('builtin command (!joke): ok');
 
+  handled = await commands.handle({ text: '!pp', username: 'weeb123', displayName: 'CoolViewer' }, ctx);
+  assert.strictEqual(handled, true);
+  assert.match(replied, /^CoolViewer's pp is \d+ inches long!$/);
+  const ppLength = Number(replied.match(/is (\d+) inches/)[1]);
+  assert.ok(ppLength >= 1 && ppLength <= 100, `pp length ${ppLength} should be between 1 and 100`);
+  console.log('builtin command (!pp): ok');
+
   handled = await commands.handle({ text: '!so somestreamer', username: 'viewer1', isMod: false, isBroadcaster: false, platform: 'twitch' }, ctx);
   assert.strictEqual(handled, true);
   assert.ok(replied.toLowerCase().includes('only mods'), 'non-mods should be blocked from !so');

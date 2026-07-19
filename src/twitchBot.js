@@ -115,7 +115,7 @@ function start() {
     }
 
     await commands.handle(
-      { text, username: tags.username, isMod, isBroadcaster, platform: 'twitch' },
+      { text, username: tags.username, displayName, isMod, isBroadcaster, platform: 'twitch' },
       ctx
     );
   });

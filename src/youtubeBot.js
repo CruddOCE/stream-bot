@@ -160,7 +160,10 @@ async function start() {
           continue;
         }
 
-        await commands.handle({ text, username: author.channelId, isMod, isBroadcaster, platform: 'youtube' }, ctx);
+        await commands.handle(
+          { text, username: author.channelId, displayName: author.displayName, isMod, isBroadcaster, platform: 'youtube' },
+          ctx
+        );
       }
     } catch (err) {
       console.error('[youtube] Polling error:', err.message);
