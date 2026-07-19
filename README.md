@@ -28,6 +28,8 @@ stream first and watch the console output before trusting it on a real one.
 - `!joke` is also read aloud through the overlay using the browser's
   built-in text-to-speech, so it plays through OBS — no paid TTS service or
   API key needed.
+- A one-click on/off control panel (`stream-bot-control.exe`) for turning
+  the bot on before a stream and off after — see below.
 
 ## Requirements
 
@@ -55,6 +57,26 @@ first, then run it again.
 
 Re-running it later is safe: if `.env` already exists it'll ask whether you
 want to redo the setup wizard, then start the bot either way.
+
+## Day-to-day: stream-bot-control.exe
+
+Once you've set up once, use [`stream-bot-control.exe`](stream-bot-control.exe)
+to turn the bot on and off around your streams — no console window, no
+typing. Double-click it and you get a small window with:
+
+- A **Start Bot / Stop Bot** button
+- A status indicator (running/stopped)
+- A live log of what the bot is doing (useful for catching errors mid-stream)
+
+**Closing the window stops the bot automatically** — that's the whole
+"turn it off after streaming" step, nothing else to remember. If the bot
+process crashes or exits on its own for any reason, the window detects that
+and updates itself back to "stopped" too.
+
+It's the same kind of tiny compiled launcher as the installer (source in
+[`installer/ControlProgram.cs`](installer/ControlProgram.cs)) — it just
+runs `node index.js` directly and shows you its output, so you still need
+to have run the installer/wizard at least once first.
 
 ## Guided wizard (npm run setup)
 
