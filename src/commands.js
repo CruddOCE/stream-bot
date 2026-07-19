@@ -23,6 +23,11 @@ const BUILTINS = {
     const all = [...builtin, ...custom].map((c) => PREFIX + c);
     return `Available commands: ${all.join(', ')}`;
   },
+  joke: () => {
+    const jokes = configStore.get('jokes') || [];
+    if (jokes.length === 0) return 'No jokes loaded — add some to config/jokes.json.';
+    return jokes[Math.floor(Math.random() * jokes.length)];
+  },
 };
 
 // message: { text, username, isMod, isBroadcaster, platform }

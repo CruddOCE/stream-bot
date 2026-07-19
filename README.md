@@ -12,7 +12,8 @@ stream first and watch the console output before trusting it on a real one.
 
 - Connects to your Twitch channel's chat and/or your YouTube channel's live
   chat at the same time.
-- Built-in commands: `!commands`, `!uptime`.
+- Built-in commands: `!commands`, `!uptime`, `!joke` (random clean joke from
+  `config/jokes.json`, no racist material — add/remove your own anytime).
 - Custom commands you define yourself in `config/commands.json` — no code
   editing, and changes apply live (no restart needed).
 - Auto-moderation: banned words, link blocking (with an allowlist), excessive

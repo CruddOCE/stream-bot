@@ -13,6 +13,7 @@ const os = require('os');
 const scratchDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stream-bot-test-'));
 fs.mkdirSync(path.join(scratchDir, 'config'));
 fs.copyFileSync(path.join(__dirname, '..', 'config', 'commands.json'), path.join(scratchDir, 'config', 'commands.json'));
+fs.copyFileSync(path.join(__dirname, '..', 'config', 'jokes.json'), path.join(scratchDir, 'config', 'jokes.json'));
 fs.writeFileSync(
   path.join(scratchDir, 'config', 'moderation.json'),
   JSON.stringify({
@@ -52,6 +53,12 @@ async function run() {
   handled = await commands.handle({ text: 'no prefix here', username: 'viewer1' }, ctx);
   assert.strictEqual(handled, false);
   console.log('non-command message ignored: ok');
+
+  const jokesList = JSON.parse(fs.readFileSync(path.join(scratchDir, 'config', 'jokes.json'), 'utf8'));
+  handled = await commands.handle({ text: '!joke', username: 'viewer1' }, ctx);
+  assert.strictEqual(handled, true);
+  assert.ok(jokesList.includes(replied), 'joke reply should come from config/jokes.json');
+  console.log('builtin command (!joke): ok');
 
   // --- Moderation ---
   let result = moderation.evaluate({ username: 'viewer2', text: 'this has a badword in it', isMod: false, isBroadcaster: false });

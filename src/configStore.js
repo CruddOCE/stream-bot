@@ -6,10 +6,17 @@ const CONFIG_DIR = process.env.STREAM_BOT_CONFIG_DIR || path.join(__dirname, '..
 const FILES = {
   commands: 'commands.json',
   moderation: 'moderation.json',
+  jokes: 'jokes.json',
+};
+
+const DEFAULTS = {
+  commands: {},
+  moderation: { enabled: false },
+  jokes: [],
 };
 
 const state = {};
-const listeners = { commands: [], moderation: [] };
+const listeners = { commands: [], moderation: [], jokes: [] };
 const watchers = [];
 
 function loadFile(key) {
@@ -19,7 +26,7 @@ function loadFile(key) {
     state[key] = JSON.parse(raw);
   } catch (err) {
     console.error(`[config] Failed to load ${FILES[key]}: ${err.message}`);
-    if (!state[key]) state[key] = key === 'commands' ? {} : { enabled: false };
+    if (!state[key]) state[key] = DEFAULTS[key];
   }
 }
 
