@@ -8,7 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, execSync } = require('child_process');
 const logger = require('../src/logger');
 
 const ROOT = path.join(__dirname, '..');
@@ -94,7 +94,12 @@ function main() {
 
   console.log('Installing any new dependencies...');
   try {
-    run(resolveNpm(), ['install']);
+    // npm.cmd is a batch-file wrapper, not a native exe -- execFileSync
+    // can't run it directly on Windows (fails with EINVAL). execSync
+    // always goes through a shell, which handles .cmd files correctly.
+    const npmCmd = resolveNpm();
+    console.log(`> ${path.basename(npmCmd)} install`);
+    console.log(execSync(`"${npmCmd}" install`, { cwd: ROOT, encoding: 'utf8' }));
   } catch (err) {
     console.error('npm install failed:', err.message);
     logger.action('update', `npm install failed: ${err.message}`, false);
