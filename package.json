@@ -1,0 +1,18 @@
+{
+  "name": "stream-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Twitch + YouTube live chat bot with custom commands and auto-moderation",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test/run.js",
+    "yt-auth": "node scripts/getYoutubeToken.js",
+    "twitch-auth": "node scripts/getTwitchToken.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "googleapis": "^126.0.1",
+    "tmi.js": "^1.8.5"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "enabled": true,
+  "bannedWords": [],
+  "linkFilter": {
+    "enabled": true,
+    "action": "delete",
+    "allowlist": ["clips.twitch.tv"]
+  },
+  "capsFilter": {
+    "enabled": true,
+    "minLength": 10,
+    "maxCapsRatio": 0.7,
+    "action": "warn"
+  },
+  "spamFilter": {
+    "enabled": true,
+    "repeatedMessageThreshold": 3,
+    "windowSeconds": 30,
+    "action": "timeout",
+    "timeoutSeconds": 60
+  },
+  "warnBeforeTimeout": true,
+  "maxWarnings": 2,
+  "escalatedTimeoutSeconds": 300
+}

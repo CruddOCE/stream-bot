@@ -1,0 +1,5 @@
+{
+  "hello": "Hey there, welcome to the stream!",
+  "discord": "Join the Discord: (put your invite link here in config/commands.json)",
+  "socials": "Find me elsewhere: (put your links here in config/commands.json)"
+}
