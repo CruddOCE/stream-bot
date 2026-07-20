@@ -25,9 +25,13 @@ stream first and watch the console output before trusting it on a real one.
 - Stream alerts + an OBS overlay: subs, resubs, gift subs, cheers, and raids
   on Twitch; Super Chats and new memberships on YouTube. Runs on a small
   local web server you add to OBS as a Browser Source.
-- `!joke` is also read aloud through the overlay using the browser's
-  built-in text-to-speech, so it plays through OBS — no paid TTS service or
-  API key needed.
+- Alerts and `!joke` also show as a popup with a chime through the overlay.
+  There's a best-effort attempt to read `!joke` aloud via the browser's
+  built-in text-to-speech, but in practice OBS's Browser Source usually
+  doesn't have any TTS voices available (a limitation of the embedded
+  browser it uses, confirmed in testing) — so treat the chime + visual
+  popup as the real notification, and the voice as a bonus if your setup
+  happens to support it.
 - A one-click on/off control panel (`stream-bot-control.exe`) for turning
   the bot on before a stream and off after — see below.
 
@@ -271,11 +275,12 @@ Available placeholders per event: `sub`/`member` → `{user}`; `resub` →
 `displaySeconds` in the same file controls how long each alert stays on
 screen (default 10).
 
-**On the spoken voice for `!joke`/TTS:** OBS's Browser Source is known to
-sometimes lack proper Web Speech API voice support (a limitation of the
-embedded browser it uses, not something fixable from this project) — you
-may hear the chime but not the voice. The visual alert and chime work
-regardless.
+**On the spoken voice for `!joke`/TTS:** confirmed in testing that OBS's
+Browser Source has no usable Web Speech API voices — this is a limitation
+of the embedded browser it uses (not something fixable from this project),
+so expect the chime but not the voice. The visual alert and chime are the
+real notification either way, and both are confirmed working correctly
+(including staying on screen for the full configured duration).
 
 ## Shoutouts (`!so`)
 
@@ -354,6 +359,8 @@ neither of those is something this script does automatically).
   read-only.
 - `!so`'s "last raided" memory only tracks Twitch raids and resets on
   restart; on YouTube (or after a restart) you need to pass a username.
-- Overlay TTS quality depends on whatever voices your OS/Chromium have
-  installed — it's the browser's built-in speech synthesis, not a
-  dedicated TTS service.
+- Overlay TTS (the spoken voice for `!joke`) depends on whatever voices
+  your OS/Chromium have installed — it's the browser's built-in speech
+  synthesis, not a dedicated TTS service, and OBS's Browser Source in
+  particular is confirmed to not have working voices in practice. The
+  visual popup + chime are the reliable notification.
