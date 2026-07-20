@@ -54,9 +54,26 @@
     const queue = [];
     let showing = false;
 
+    // One shared AudioContext, created immediately at page load rather than
+    // lazily inside each playback call. A context created synchronously up
+    // front is far more likely to actually be in the 'running' state (vs.
+    // 'suspended' with no error, silently producing nothing) than one
+    // created later inside an async chain -- see getAudioContext() below.
+    let sharedAudioCtx = null;
+    function getAudioContext() {
+      if (!sharedAudioCtx) {
+        sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (sharedAudioCtx.state === 'suspended') {
+        sharedAudioCtx.resume().catch(() => {});
+      }
+      return sharedAudioCtx;
+    }
+    getAudioContext();
+
     function playChime() {
       try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = getAudioContext();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
@@ -148,7 +165,7 @@
       fetch(url)
         .then((res) => res.arrayBuffer())
         .then((buf) => {
-          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const ctx = getAudioContext();
           return ctx.decodeAudioData(buf).then((decoded) => {
             const source = ctx.createBufferSource();
             source.buffer = decoded;
