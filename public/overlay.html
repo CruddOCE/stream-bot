@@ -138,20 +138,27 @@
     }
 
     // Primary TTS path: play a server-rendered audio file (see
-    // src/ttsEngine.js). Plain <audio> playback works reliably in OBS's
-    // Browser Source, unlike the Web Speech API used by speak() above,
-    // which OBS generally exposes zero voices to.
+    // src/ttsEngine.js). Decoded and played through the same Web Audio API
+    // (AudioContext) the chime already uses, rather than a plain <audio>
+    // tag -- confirmed by testing that OBS's Browser Source plays the
+    // AudioContext-based chime fine but was silently dropping <audio>
+    // element playback, likely a separate/stricter autoplay policy for
+    // HTMLMediaElement even where AudioContext is allowed.
     function playAudioUrl(url) {
-      try {
-        const audio = new Audio(url);
-        audio.play().catch(() => {
-          // Some plain (non-OBS) browsers block autoplay without a prior
-          // user gesture -- OBS's Browser Source is exempt from that
-          // restriction, so this should normally succeed there.
+      fetch(url)
+        .then((res) => res.arrayBuffer())
+        .then((buf) => {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          return ctx.decodeAudioData(buf).then((decoded) => {
+            const source = ctx.createBufferSource();
+            source.buffer = decoded;
+            source.connect(ctx.destination);
+            source.start();
+          });
+        })
+        .catch((e) => {
+          console.error('[overlay] TTS audio playback failed:', e);
         });
-      } catch (e) {
-        // ignore
-      }
     }
 
     function connect() {
