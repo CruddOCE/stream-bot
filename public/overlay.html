@@ -81,20 +81,60 @@
       kindEl.textContent = type || '';
       textEl.textContent = message;
       playChime();
-      requestAnimationFrame(() => box.classList.add('show'));
+      // Force a reflow before adding the class so the opacity/transform
+      // transition actually animates instead of jumping straight to its
+      // end state. requestAnimationFrame would normally do this, but it's
+      // tied to the browser's paint cycle -- OBS's Browser Source uses
+      // offscreen rendering, where rAF can be unreliable or never fire,
+      // which left the box permanently invisible in practice.
+      void box.offsetWidth;
+      box.classList.add('show');
       setTimeout(() => {
         box.classList.remove('show');
         setTimeout(() => {
           showing = false;
           processQueue();
         }, 450);
-      }, (displaySeconds || 6) * 1000);
+      }, (displaySeconds || 10) * 1000);
     }
 
+    // Some Chromium-based embedded browsers (including OBS's built-in
+    // Browser Source) report speechSynthesis as available but load its
+    // voice list asynchronously -- calling speak() before any voice has
+    // loaded can fail silently. Wait for a voice, with a timeout fallback
+    // in case 'voiceschanged' never fires at all (some embedded browsers
+    // never populate a voice list, in which case this still won't
+    // produce audio -- that's a real platform limitation, not something
+    // fixable from here).
     function speak(text) {
       if (!('speechSynthesis' in window)) return;
-      const utterance = new SpeechSynthesisUtterance(text);
-      window.speechSynthesis.speak(utterance);
+
+      const trySpeak = () => {
+        const voices = window.speechSynthesis.getVoices();
+        const utterance = new SpeechSynthesisUtterance(text);
+        if (voices.length > 0) utterance.voice = voices[0];
+        window.speechSynthesis.speak(utterance);
+      };
+
+      if (window.speechSynthesis.getVoices().length > 0) {
+        trySpeak();
+        return;
+      }
+
+      let spoken = false;
+      const onVoicesChanged = () => {
+        if (spoken) return;
+        spoken = true;
+        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+        trySpeak();
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+      setTimeout(() => {
+        if (spoken) return;
+        spoken = true;
+        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+        trySpeak();
+      }, 1000);
     }
 
     function connect() {

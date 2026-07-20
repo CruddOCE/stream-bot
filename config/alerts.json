@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "displaySeconds": 6,
+  "displaySeconds": 10,
   "templates": {
     "sub": "{user} just subscribed!",
     "resub": "{user} resubscribed for {months} months!",

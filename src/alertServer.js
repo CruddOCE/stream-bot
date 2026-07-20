@@ -3,6 +3,7 @@ const http = require('http');
 const path = require('path');
 const WebSocket = require('ws');
 const logger = require('./logger');
+const configStore = require('./configStore');
 
 let wss = null;
 let server = null;
@@ -30,14 +31,40 @@ function start() {
   server = http.createServer(app);
   wss = new WebSocket.Server({ server });
 
-  wss.on('connection', () => {
+  wss.on('connection', (ws) => {
     console.log('[alerts] Overlay connected');
     logger.action('overlay-connect', 'Overlay browser source connected');
+
+    // A browser source that disappears without a clean close (OBS scene
+    // switch, network blip, computer sleep) leaves a "zombie" entry here
+    // forever otherwise -- ws has no built-in dead-peer detection, so
+    // getConnectedCount() would keep reporting a connection that's
+    // actually gone, and broadcasts would silently go nowhere.
+    ws.isAlive = true;
+    ws.on('pong', () => {
+      ws.isAlive = true;
+    });
+
+    ws.on('close', () => {
+      logger.info('overlay-connect', 'Overlay browser source disconnected');
+    });
   });
 
-  wss.on('close', () => {
-    logger.info('overlay-connect', 'Overlay browser source disconnected');
-  });
+  // Every 20s, ping each client and terminate anyone who didn't pong back
+  // since the last round -- this is what actually catches zombie
+  // connections (see comment above). unref() so this timer alone can't
+  // keep the process alive.
+  const heartbeat = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      if (ws.isAlive === false) {
+        logger.info('overlay-connect', 'Overlay connection timed out (no response to ping) -- removing it');
+        return ws.terminate();
+      }
+      ws.isAlive = false;
+      ws.ping();
+    });
+  }, 20000);
+  heartbeat.unref();
 
   server.listen(port, () => {
     console.log(`[alerts] Overlay running at http://localhost:${port}/overlay.html — add this as an OBS Browser Source`);
@@ -80,7 +107,9 @@ function broadcast(payload) {
 // type: 'sub' | 'resub' | 'gift' | 'giftBomb' | 'cheer' | 'raid' | 'superchat' | 'member'
 function alert(type, message) {
   console.log(`[alerts] ${type}: ${message}`);
-  broadcast({ kind: 'alert', type, message });
+  const alerts = configStore.get('alerts');
+  const displaySeconds = alerts && alerts.displaySeconds;
+  broadcast({ kind: 'alert', type, message, displaySeconds });
 }
 
 // Sent to the overlay, which reads it aloud via the browser's built-in

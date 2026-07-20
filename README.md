@@ -268,6 +268,15 @@ Available placeholders per event: `sub`/`member` → `{user}`; `resub` →
 {count}`; `cheer` → `{user} {bits}`; `raid` → `{user} {viewers}`;
 `superchat` → `{user} {amount}`.
 
+`displaySeconds` in the same file controls how long each alert stays on
+screen (default 10).
+
+**On the spoken voice for `!joke`/TTS:** OBS's Browser Source is known to
+sometimes lack proper Web Speech API voice support (a limitation of the
+embedded browser it uses, not something fixable from this project) — you
+may hear the chime but not the voice. The visual alert and chime work
+regardless.
+
 ## Shoutouts (`!so`)
 
 Mod-only (and broadcaster). Usage:
