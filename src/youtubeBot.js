@@ -25,7 +25,34 @@ function fireAlert(type, defaultTemplate, vars) {
   logger.action('youtube-alert', `${type}: ${message}`);
 }
 
-async function findLiveChatId(youtube, channelId) {
+async function findLiveChatId(youtube, channelId, canModerate) {
+  if (canModerate) {
+    // liveBroadcasts.list costs ~1 quota unit vs. search.list's 100 --
+    // use this far cheaper path whenever we're authenticated as the
+    // channel owner. This endpoint is inherently scoped to the
+    // authenticated user's own broadcasts (no "mine" param needed --
+    // it's actually rejected as incompatible alongside broadcastStatus).
+    // At a 30s poll interval, search.list alone can exhaust a standard
+    // 10,000-unit daily quota in under an hour; this path makes that
+    // essentially a non-issue, and draws from a separate quota bucket
+    // so it keeps working even if search.list's quota is exhausted.
+    try {
+      const broadcasts = await youtube.liveBroadcasts.list({
+        part: 'snippet',
+        broadcastStatus: 'active',
+        broadcastType: 'all',
+      });
+      const broadcast = broadcasts.data.items && broadcasts.data.items[0];
+      return broadcast && broadcast.snippet ? broadcast.snippet.liveChatId || null : null;
+    } catch (err) {
+      console.warn('[youtube] liveBroadcasts.list check failed, falling back to search.list:', err.message);
+      logger.info('youtube-connect', `Cheap live-check failed (${err.message}), falling back to search.list`);
+    }
+  }
+
+  // Fallback: works with just an API key, but costs 100 quota units per
+  // call (YouTube's most expensive common endpoint) -- callers should
+  // poll this path much less frequently than the cheap one above.
   const search = await youtube.search.list({
     part: 'id',
     channelId,
@@ -67,16 +94,21 @@ async function start() {
     auth: authedClient || apiKey,
   });
 
-  const liveChatId = await findLiveChatId(youtube, channelId).catch((err) => {
+  const liveChatId = await findLiveChatId(youtube, channelId, canModerate).catch((err) => {
     console.error('[youtube] Failed to find an active live stream:', err.message);
     logger.action('youtube-connect', `Failed to find an active live stream: ${err.message}`, false);
     return null;
   });
 
   if (!liveChatId) {
-    console.warn('[youtube] No active live stream found for this channel. The bot will keep retrying every 30s.');
-    logger.info('youtube-connect', 'No active live stream found -- retrying in 30s');
-    setTimeout(() => start(), 30000);
+    // The cheap OAuth-based check (~1 quota unit) can be polled often;
+    // the search.list fallback (100 units/call) needs a much longer gap
+    // so it can't exhaust a daily quota on its own.
+    const retryMs = canModerate ? 30000 : 5 * 60 * 1000;
+    const retrySeconds = retryMs / 1000;
+    console.warn(`[youtube] No active live stream found for this channel. The bot will keep retrying every ${retrySeconds}s.`);
+    logger.info('youtube-connect', `No active live stream found -- retrying in ${retrySeconds}s`);
+    setTimeout(() => start(), retryMs);
     return null;
   }
 
