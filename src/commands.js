@@ -32,6 +32,10 @@ const BUILTINS = {
     const jokes = configStore.get('jokes') || [];
     if (jokes.length === 0) return 'No jokes loaded — add some to config/jokes.json.';
     const joke = jokes[Math.floor(Math.random() * jokes.length)];
+    // alert() (chime + visual popup) is what actually shows up in OBS --
+    // speak() alone is not enough, since OBS's Browser Source generally has
+    // no usable TTS voices and would otherwise produce nothing perceptible.
+    alertServer.alert('joke', joke);
     alertServer.speak(joke);
     return joke;
   },
@@ -39,6 +43,7 @@ const BUILTINS = {
     const name = message.displayName || message.username;
     const length = Math.floor(Math.random() * 100) + 1;
     const reply = `${name}'s pp is ${length} inches long!`;
+    alertServer.alert('pp', reply);
     alertServer.speak(reply);
     return reply;
   },
@@ -61,6 +66,7 @@ const BUILTINS = {
     }
 
     if (!reply) reply = `Go check out ${target}!`;
+    alertServer.alert('so', reply);
     alertServer.speak(reply);
     return reply;
   },
