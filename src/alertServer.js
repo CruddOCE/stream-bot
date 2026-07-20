@@ -4,6 +4,7 @@ const path = require('path');
 const WebSocket = require('ws');
 const logger = require('./logger');
 const configStore = require('./configStore');
+const ttsEngine = require('./ttsEngine');
 
 let wss = null;
 let server = null;
@@ -124,11 +125,25 @@ function commandReply(username, message) {
   broadcast({ kind: 'alert', type: 'reply', message: `${username}: ${message}`, displaySeconds, silent: true });
 }
 
-// Sent to the overlay, which reads it aloud via the browser's built-in
-// text-to-speech (so it plays through OBS's audio capture of the
-// Browser Source — no external TTS service or API key needed).
-function speak(text) {
-  broadcast({ kind: 'tts', text });
+// Sent to the overlay to be read aloud. Generates real audio server-side
+// (Windows SAPI via ttsEngine) and has the overlay play that file, since
+// OBS's Browser Source generally exposes no voices to the browser's own
+// Web Speech API -- that would produce silence there even though it works
+// fine in a normal browser. Falls back to the browser's speechSynthesis
+// (kind: 'tts' with `text` instead of `url`) if server-side synthesis
+// fails or isn't available (e.g. non-Windows).
+async function speak(text) {
+  if (!wss || getConnectedCount() === 0) {
+    logger.action('alert-broadcast', 'tts broadcast attempted but no overlay is connected', false);
+    return;
+  }
+  try {
+    const result = await ttsEngine.synthesize(text);
+    broadcast({ kind: 'tts', url: result.url });
+  } catch (err) {
+    logger.action('tts', `Server-side speech synthesis failed, falling back to browser TTS: ${err.message}`, false);
+    broadcast({ kind: 'tts', text });
+  }
 }
 
 module.exports = { start, alert, speak, commandReply };

@@ -137,6 +137,23 @@
       }, 1000);
     }
 
+    // Primary TTS path: play a server-rendered audio file (see
+    // src/ttsEngine.js). Plain <audio> playback works reliably in OBS's
+    // Browser Source, unlike the Web Speech API used by speak() above,
+    // which OBS generally exposes zero voices to.
+    function playAudioUrl(url) {
+      try {
+        const audio = new Audio(url);
+        audio.play().catch(() => {
+          // Some plain (non-OBS) browsers block autoplay without a prior
+          // user gesture -- OBS's Browser Source is exempt from that
+          // restriction, so this should normally succeed there.
+        });
+      } catch (e) {
+        // ignore
+      }
+    }
+
     function connect() {
       const ws = new WebSocket(`ws://${location.host}`);
       ws.onmessage = (evt) => {
@@ -150,7 +167,11 @@
           queue.push(data);
           processQueue();
         } else if (data.kind === 'tts') {
-          speak(data.text);
+          if (data.url) {
+            playAudioUrl(data.url);
+          } else if (data.text) {
+            speak(data.text);
+          }
         }
       };
       ws.onclose = () => setTimeout(connect, 2000);
