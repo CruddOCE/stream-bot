@@ -38,26 +38,31 @@ const BUILTINS = {
   pp: (message) => {
     const name = message.displayName || message.username;
     const length = Math.floor(Math.random() * 100) + 1;
-    return `${name}'s pp is ${length} inches long!`;
+    const reply = `${name}'s pp is ${length} inches long!`;
+    alertServer.speak(reply);
+    return reply;
   },
   so: async (message, args) => {
     const targetRaw = args[0] || state.getLastRaider(message.platform);
     if (!targetRaw) return 'No one to shout out yet — try !so <username>.';
     const target = targetRaw.replace(/^@/, '');
 
+    let reply;
     if (message.platform === 'twitch') {
       const info = await twitchApi.getChannelInfo(target).catch((err) => {
         logger.action('twitch-api', `!so lookup for "${target}" failed: ${err.message}`, false);
         return null;
       });
       if (info) {
-        return info.game
+        reply = info.game
           ? `Go check out ${info.displayName} at twitch.tv/${info.login} — they were last streaming ${info.game}!`
           : `Go check out ${info.displayName} at twitch.tv/${info.login}!`;
       }
     }
 
-    return `Go check out ${target}!`;
+    if (!reply) reply = `Go check out ${target}!`;
+    alertServer.speak(reply);
+    return reply;
   },
 };
 
