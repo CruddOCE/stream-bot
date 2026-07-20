@@ -112,6 +112,18 @@ function alert(type, message) {
   broadcast({ kind: 'alert', type, message, displaySeconds });
 }
 
+// Used when the bot can't actually post a reply (YouTube read-only mode,
+// no OAuth) -- shows the command reply as a quiet overlay toast instead, so
+// !pp/!so/custom commands are still visible somewhere even though nothing
+// appears in YouTube chat itself. No chime, since this can fire on every
+// single command instead of just real events.
+function commandReply(username, message) {
+  console.log(`[reply] ${username}: ${message}`);
+  const alerts = configStore.get('alerts');
+  const displaySeconds = alerts && alerts.displaySeconds;
+  broadcast({ kind: 'alert', type: 'reply', message: `${username}: ${message}`, displaySeconds, silent: true });
+}
+
 // Sent to the overlay, which reads it aloud via the browser's built-in
 // text-to-speech (so it plays through OBS's audio capture of the
 // Browser Source — no external TTS service or API key needed).
@@ -119,4 +131,4 @@ function speak(text) {
   broadcast({ kind: 'tts', text });
 }
 
-module.exports = { start, alert, speak };
+module.exports = { start, alert, speak, commandReply };

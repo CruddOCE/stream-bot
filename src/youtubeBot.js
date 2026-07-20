@@ -163,6 +163,10 @@ async function start() {
           reply: async (msg) => {
             if (!canModerate) {
               console.log(`[youtube] (read-only, would reply) ${msg}`);
+              const alerts = configStore.get('alerts');
+              if (alerts && alerts.enabled) {
+                alertServer.commandReply(author.displayName, msg);
+              }
               return;
             }
             await youtube.liveChatMessages.insert({

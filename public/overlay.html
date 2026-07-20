@@ -77,10 +77,10 @@
     function processQueue() {
       if (showing || queue.length === 0) return;
       showing = true;
-      const { type, message, displaySeconds } = queue.shift();
+      const { type, message, displaySeconds, silent } = queue.shift();
       kindEl.textContent = type || '';
       textEl.textContent = message;
-      playChime();
+      if (!silent) playChime();
       // Force a reflow before adding the class so the opacity/transform
       // transition actually animates instead of jumping straight to its
       // end state. requestAnimationFrame would normally do this, but it's
