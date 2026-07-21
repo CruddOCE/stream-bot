@@ -5,7 +5,7 @@
 // -- generating the audio ourselves sidesteps that limitation entirely,
 // since audio file playback doesn't depend on OBS exposing any voices.
 
-const { execFile, execFileSync } = require('child_process');
+const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -14,31 +14,51 @@ const TTS_DIR = path.join(__dirname, '..', 'public', 'tts');
 const FILE_LIFETIME_MS = 30000;
 
 let cachedVoices = null;
+let voicesPromise = null;
 
 function ensureDir() {
   if (!fs.existsSync(TTS_DIR)) fs.mkdirSync(TTS_DIR, { recursive: true });
 }
 
-function getInstalledVoices() {
-  if (cachedVoices) return cachedVoices;
+// The process gets restarted often during development (and can be killed
+// less than 30s after generating a file, before its self-delete timer
+// fires) -- sweep out anything left over from a previous run on startup,
+// rather than letting public/tts/ accumulate orphaned WAV files forever.
+function cleanupStaleFiles() {
+  if (!fs.existsSync(TTS_DIR)) return;
   try {
+    for (const file of fs.readdirSync(TTS_DIR)) {
+      fs.unlinkSync(path.join(TTS_DIR, file));
+    }
+  } catch (err) {
+    // Best-effort; a leftover file or two isn't worth failing startup over.
+  }
+}
+cleanupStaleFiles();
+
+// Async so it never blocks the event loop (Twitch/YouTube polling, the
+// alert server, everything) -- the in-flight promise is cached too, so
+// concurrent calls before the first one resolves don't spawn duplicate
+// PowerShell processes.
+function getInstalledVoices() {
+  if (cachedVoices) return Promise.resolve(cachedVoices);
+  if (!voicesPromise) {
     const script =
       'Add-Type -AssemblyName System.Speech; ' +
       '(New-Object System.Speech.Synthesis.SpeechSynthesizer).GetInstalledVoices() | ' +
       'Where-Object { $_.Enabled } | ForEach-Object { $_.VoiceInfo.Name }';
-    const out = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
-      encoding: 'utf8',
-      timeout: 10000,
+    voicesPromise = new Promise((resolve) => {
+      execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { timeout: 10000 }, (err, stdout) => {
+        cachedVoices = err ? [] : stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+        resolve(cachedVoices);
+      });
     });
-    cachedVoices = out.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  } catch (err) {
-    cachedVoices = [];
   }
-  return cachedVoices;
+  return voicesPromise;
 }
 
-function pickRandomVoice() {
-  const voices = getInstalledVoices();
+async function pickRandomVoice() {
+  const voices = await getInstalledVoices();
   if (voices.length === 0) return null;
   return voices[Math.floor(Math.random() * voices.length)];
 }
@@ -54,19 +74,19 @@ function psSingleQuote(str) {
 // Resolves with { url, voice }; the file is served at that URL via the
 // existing public/ static route and deleted a bit after it should have
 // finished playing.
-function synthesize(text) {
+async function synthesize(text) {
+  ensureDir();
+  const voice = await pickRandomVoice();
+  const id = crypto.randomBytes(8).toString('hex');
+  const filePath = path.join(TTS_DIR, `${id}.wav`);
+
+  const scriptParts = ['Add-Type -AssemblyName System.Speech', '$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer'];
+  if (voice) scriptParts.push(`$synth.SelectVoice('${psSingleQuote(voice)}')`);
+  scriptParts.push(`$synth.SetOutputToWaveFile('${psSingleQuote(filePath)}')`);
+  scriptParts.push(`$synth.Speak('${psSingleQuote(text)}')`);
+  scriptParts.push('$synth.Dispose()');
+
   return new Promise((resolve, reject) => {
-    ensureDir();
-    const voice = pickRandomVoice();
-    const id = crypto.randomBytes(8).toString('hex');
-    const filePath = path.join(TTS_DIR, `${id}.wav`);
-
-    const scriptParts = ['Add-Type -AssemblyName System.Speech', '$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer'];
-    if (voice) scriptParts.push(`$synth.SelectVoice('${psSingleQuote(voice)}')`);
-    scriptParts.push(`$synth.SetOutputToWaveFile('${psSingleQuote(filePath)}')`);
-    scriptParts.push(`$synth.Speak('${psSingleQuote(text)}')`);
-    scriptParts.push('$synth.Dispose()');
-
     execFile(
       'powershell.exe',
       ['-NoProfile', '-NonInteractive', '-Command', scriptParts.join('; ')],

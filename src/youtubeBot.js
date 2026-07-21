@@ -160,12 +160,16 @@ async function start() {
         emitChatLine('youtube', author.displayName, isMod, isBroadcaster, text);
 
         const ctx = {
-          reply: async (msg) => {
+          reply: async (msg, opts = {}) => {
             if (!canModerate) {
               console.log(`[youtube] (read-only, would reply) ${msg}`);
-              const alerts = configStore.get('alerts');
-              if (alerts && alerts.enabled) {
-                alertServer.commandReply(author.displayName, msg);
+              // Commands that already fire their own alert() (joke/pp/so)
+              // would otherwise get a second, overlapping popup here.
+              if (!opts.selfAnnounced) {
+                const alerts = configStore.get('alerts');
+                if (alerts && alerts.enabled) {
+                  alertServer.commandReply(author.displayName, msg);
+                }
               }
               return;
             }

@@ -7,6 +7,10 @@ const logger = require('./logger');
 const startTime = Date.now();
 const PREFIX = process.env.BOT_PREFIX || '!';
 const MOD_ONLY = new Set(['so']);
+// These already call alertServer.alert() themselves (chime + popup), so
+// ctx.reply()'s read-only fallback toast (commandReply) should skip them --
+// otherwise YouTube read-only mode shows two overlapping popups per command.
+const SELF_ANNOUNCED = new Set(['joke', 'pp', 'so']);
 
 function formatUptime(ms) {
   const totalSeconds = Math.floor(ms / 1000);
@@ -96,22 +100,22 @@ async function handle(message, ctx) {
       logger.action('command', `!${cmd} ${logWho} threw an error: ${err.message}`, false);
       return true;
     }
-    await safeReply(ctx, result, `!${cmd}`, logWho);
+    await safeReply(ctx, result, `!${cmd}`, logWho, SELF_ANNOUNCED.has(cmd));
     return true;
   }
 
   const custom = configStore.get('commands') || {};
   if (Object.prototype.hasOwnProperty.call(custom, cmd)) {
-    await safeReply(ctx, custom[cmd], `!${cmd}`, logWho);
+    await safeReply(ctx, custom[cmd], `!${cmd}`, logWho, false);
     return true;
   }
 
   return false;
 }
 
-async function safeReply(ctx, message, cmdLabel, logWho) {
+async function safeReply(ctx, message, cmdLabel, logWho, selfAnnounced) {
   try {
-    await ctx.reply(message);
+    await ctx.reply(message, { selfAnnounced });
     logger.action('command', `${cmdLabel} ${logWho}`);
   } catch (err) {
     logger.action('command', `${cmdLabel} ${logWho} reply failed: ${err.message}`, false);
